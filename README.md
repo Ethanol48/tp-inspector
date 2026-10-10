@@ -10,7 +10,7 @@ You need an EPITA account with access to the assignment on operator
 
 ## 1. Compile
 
-Requires **Go 1.26+** (`sudo pacman -S go` on Arch, or <https://go.dev/dl/>)
+Requires **Go 1.26+**
 and `git`.
 
 ```sh
