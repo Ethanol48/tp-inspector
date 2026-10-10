@@ -1,4 +1,4 @@
-# tpi — TP inspector
+# TP inspector
 
 A terminal UI to explore an EPITA assignment on Forge **operator**: promo
 statistics, rankings, each student's trace as a collapsible test tree (like
