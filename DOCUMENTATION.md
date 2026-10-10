@@ -89,7 +89,7 @@ positional argument).
 ### Assignment slug
 
 `prog-205-p-01-2030` reads as: subject `prog`, year `2`, bimester `05`, kind
-`p` (TP; `e` exam, `r` retake…), number `01`, class of `2030`.
+`p` (TP; `e` exam, `r` retake…), number `01`, promo of `2030`.
 
 ### Logins file
 
@@ -151,7 +151,7 @@ neighbouring classes are what reveal a **repeated year**: a student who
 repeated year 1 did it once with the class of 2029 and again with the class
 of 2030.
 
-The view has one tab per **academic year + class** in which the student
+The view has one tab per **academic year + promo** in which the student
 submitted something (e.g. `Y1 · 2029 2024–25`, `Y1 · 2030 2025–26`,
 `Y2 · 2030 2026–27`), plus a **Summary** tab: average cards over every year
 and one row per year + class with the TP / exam / retake / overall averages
@@ -192,14 +192,14 @@ rest when the terminal is narrow; `?` always lists everything.
 | `f` | Show only the `--logins` list + marked students |
 | `space` | Mark a student (marked students are the ones cloned in Repos) |
 | `c` | Compare the 2 marked students (or 1 marked + the cursor) |
-| `H` | History of the student under the cursor: grades in every TP / exam by academic year + class (asks before downloading) |
+| `H` | History of the student under the cursor: grades in every TP / exam by academic year + promo (asks before downloading) |
 | `v` | Show / hide columns (IP is hidden by default); saved in `~/.config/tpi/config.json` |
 | **Repos** | |
 | `a` | Clone / update the marked repos |
 | `u` | Unmark the student under the cursor |
 | `r` | Remove the repo under the cursor (confirm with `y`) |
 | **History** | |
-| `tab`, `←/→` | Switch between Summary and the academic year + class tabs |
+| `tab`, `←/→` | Switch between Summary and the academic year + promo tabs |
 | `enter` | In Summary: open that year |
 | `s` / `r` | Cycle sort (activity, date, grade) / reverse |
 | `k` | Show every kind / only TPs / exams / retakes |
