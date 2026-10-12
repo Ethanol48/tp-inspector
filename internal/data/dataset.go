@@ -156,6 +156,7 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 	for _, st := range ds.Students {
 		sort.Slice(st.Subs, func(i, j int) bool { return st.Subs[i].ReceivedAt.After(st.Subs[j].ReceivedAt) })
 	}
+	l.fillRemotes(ds)
 
 	// Picked submissions carry short-lived presigned trace URLs: never cached.
 	type job struct {
@@ -208,6 +209,41 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 
 	sort.Slice(ds.Students, func(i, j int) bool { return ds.Students[i].Login < ds.Students[j].Login })
 	return ds, nil
+}
+
+// fillRemotes gives a git remote to students whose group has none: exams
+// list no groups at all, but every submission names its repository. The
+// "user@host:" part comes from another student's remote, else from the
+// session's login.
+func (l *Loader) fillRemotes(ds *Dataset) {
+	prefix := ""
+	for _, st := range ds.Students {
+		if r := st.Group.GitRemoteURL; r != "" {
+			if i := strings.Index(r, ":"); i > 0 {
+				prefix = r[:i+1]
+				break
+			}
+		}
+	}
+	if prefix == "" {
+		prefix = forge.GitHost + ":"
+		if l.Client != nil && l.Client.Auth != nil {
+			if u := l.Client.Auth.Username(); u != "" {
+				prefix = u + "@" + prefix
+			}
+		}
+	}
+	for _, st := range ds.Students {
+		if st.Group.GitRemoteURL != "" {
+			continue
+		}
+		for _, s := range st.Subs { // newest first
+			if s.Repository != "" {
+				st.Group.GitRemoteURL = forge.RemoteFromRepository(prefix, s.Repository)
+				break
+			}
+		}
+	}
 }
 
 // windows fills ds.Windows from the assignments owning the submission

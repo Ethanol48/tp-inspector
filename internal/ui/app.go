@@ -666,6 +666,38 @@ func (m *Model) classLabel() string {
 // ("submit" for TPs, "submission" for exams).
 func (m *Model) gradedSD() string { return m.ds.GradedSD() }
 
+// nothingToClone explains why A found nobody to clone.
+func (m *Model) nothingToClone() string {
+	sd := m.gradedSD()
+	who := m.ds.Students
+	if len(m.list) > 0 {
+		who = m.groupStudents()
+		if len(who) == 0 {
+			return "None of the --logins students is in this assignment"
+		}
+	}
+	pushed, other, remote := 0, 0, 0
+	for _, st := range who {
+		if st.Last(sd) != nil {
+			pushed++
+		} else if len(st.Subs) > 0 {
+			other++
+		}
+		if st.Group.GitRemoteURL != "" {
+			remote++
+		}
+	}
+	switch {
+	case pushed == 0 && other > 0:
+		return fmt.Sprintf("Nobody has pushed a %s-* tag yet (only other tags such as archi-*, which only check the structure)", sd)
+	case pushed == 0:
+		return "Nobody has pushed anything yet"
+	case remote == 0:
+		return "No git remote known for these students (no groups and no repository in their submissions)"
+	}
+	return "Nobody has a graded " + sd + " to clone"
+}
+
 // classToClone returns the students A clones, those with a graded
 // submission: the --logins list plus the marked students, or the whole
 // promotion without a list.

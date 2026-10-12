@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"tp-inspector/internal/forge"
 )
 
 func write(t *testing.T, p string) {
@@ -78,5 +79,28 @@ func TestPickGradedSD(t *testing.T) {
 		if got := PickGradedSD(c.names); got != c.want {
 			t.Errorf("PickGradedSD(%v) = %q, want %q", c.names, got, c.want)
 		}
+	}
+}
+
+// Exams list no groups: the remote comes from the submissions' repository,
+// with the "user@host:" of another student's remote when there is one.
+func TestFillRemotes(t *testing.T) {
+	sub := func(repo string) []forge.Submission { return []forge.Submission{{Repository: repo}} }
+	ds := &Dataset{Students: []*Student{
+		{Login: "a", Group: forge.Group{GitRemoteURL: "me@git.forge.epita.fr:p/t/tp/t-tp-a"}},
+		{Login: "b", Subs: sub("/p/t/tp/t-tp-b.git")},
+		{Login: "c"},
+	}}
+	(&Loader{}).fillRemotes(ds)
+	if got := ds.Students[1].Group.GitRemoteURL; got != "me@git.forge.epita.fr:p/t/tp/t-tp-b" {
+		t.Errorf("b: %q", got)
+	}
+	if got := ds.Students[2].Group.GitRemoteURL; got != "" {
+		t.Errorf("c has no submission, no remote expected: %q", got)
+	}
+	exam := &Dataset{Students: []*Student{{Login: "e", Subs: sub("/p/t/exam/t-exam-e.git")}}}
+	(&Loader{}).fillRemotes(exam) // no group remote, no session: the ssh config gives the user
+	if got := exam.Students[0].Group.GitRemoteURL; got != "git.forge.epita.fr:p/t/exam/t-exam-e" {
+		t.Errorf("e: %q", got)
 	}
 }

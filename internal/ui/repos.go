@@ -121,7 +121,7 @@ func (v *reposView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		if v.confirmAll = len(m.classToClone()); v.confirmAll == 0 {
-			return m.setStatus("Nobody has a graded " + m.gradedSD() + " to clone")
+			return m.setStatus(m.nothingToClone())
 		}
 		return nil
 	case "r":

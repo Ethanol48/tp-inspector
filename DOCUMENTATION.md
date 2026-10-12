@@ -429,6 +429,11 @@ Quirks found while building this, not in the Swagger spec:
   sent explicitly, and **409** above `pageSize=100`.
 - Path parameters containing `/` (activity and submission definition URIs)
   must be encoded as `%2F`.
+- `GET /api/activities/groups/{activityUri}` returns no groups for exams. The
+  git remote of each student is then built from the `repository` of their
+  submissions (`/p/<tenant>/<slug>/<group>.git` →
+  `<you>@git.forge.epita.fr:p/<tenant>/<slug>/<group>`), `<you>` being the
+  login of your CRI session.
 - `GET /api/activities/assignment/{assignmentUri}` gives the
   `openingAt` / `closingAt` of each submission definition; the assignment URI
   is the definition URI without its last segment.

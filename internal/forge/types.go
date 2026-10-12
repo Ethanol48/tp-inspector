@@ -1,6 +1,9 @@
 package forge
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Activity struct {
 	URI        string `json:"uri"`
@@ -62,6 +65,16 @@ type exploreResponse struct {
 	Count     int64        `json:"count"`
 	PageCount int          `json:"pageCount"`
 	Results   []Submission `json:"results"`
+}
+
+// GitHost is the Forge git server, used when no group remote tells it.
+const GitHost = "git.forge.epita.fr"
+
+// RemoteFromRepository turns a submission's repository path
+// ("/p/<tenant>/<slug>/<group>.git") into an SSH remote, given the
+// "user@host:" prefix of the other remotes.
+func RemoteFromRepository(prefix, repo string) string {
+	return prefix + strings.TrimSuffix(strings.TrimPrefix(repo, "/"), ".git")
 }
 
 type Group struct {

@@ -143,6 +143,19 @@ func TestExamTrace(t *testing.T) {
 	}
 }
 
+// A TP where only archi-* tags were pushed: A must say why nobody is cloned.
+func TestNothingToClone(t *testing.T) {
+	st := &data.Student{Login: "x", Group: forge.Group{GitRemoteURL: "me@forge:x"},
+		Subs: []forge.Submission{{ID: "1", Ref: "archi-1", SubmissionDefinitionURI: "a/archi"}}}
+	ds := &data.Dataset{SDs: []string{"submit", "archi"}, SDURIs: map[string]string{"submit": "a/submit", "archi": "a/archi"},
+		Students: []*data.Student{st}}
+	m := New(tp.Slug{Raw: "tp"}, &data.Loader{Cache: &data.Cache{Root: t.TempDir()}}, nil)
+	m.ds = ds
+	if len(m.classToClone()) != 0 || !strings.Contains(m.nothingToClone(), "archi-*") {
+		t.Errorf("got %v, %q", m.classToClone(), m.nothingToClone())
+	}
+}
+
 // Risk sorts everyone; suspicion puts analysed students first, then the
 // others by risk.
 func TestRankingSorts(t *testing.T) {
