@@ -119,9 +119,12 @@ func New(slug tp.Slug, loader *data.Loader, list []string) *Model {
 	}
 	rv := newRankingView()
 	rv.onlyList = len(list) > 0
-	m.tabs = []view{&overviewView{}, rv, &testsView{}, &tracesView{}, &reposView{}}
+	m.tabs = []view{&overviewView{onlyList: len(list) > 0}, rv, &testsView{}, &tracesView{}, &reposView{}}
 	return m
 }
+
+// inSelection reports whether a student is in the --logins list or marked by hand.
+func (m *Model) inSelection(login string) bool { return m.list[login] || m.marked[login] }
 
 // Run starts the program.
 func Run(m *Model) error {

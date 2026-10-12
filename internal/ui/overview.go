@@ -10,11 +10,55 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type overviewView struct{}
+type overviewView struct {
+	onlyList bool // statistics of the --logins list and marked students only
+}
 
-func (v *overviewView) Title() string                         { return "Overview" }
-func (v *overviewView) Keys() []string                        { return nil }
-func (v *overviewView) Update(m *Model, k tea.KeyMsg) tea.Cmd { return nil }
+func (v *overviewView) Title() string  { return "Overview" }
+func (v *overviewView) Keys() []string { return []string{keyHint("f", "selection / whole class")} }
+
+func (v *overviewView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
+	if k.String() == "f" {
+		v.onlyList = !v.onlyList
+	}
+	return nil
+}
+
+// meanMedian returns the mean and the median of sorted percentages; the
+// median of an even count is the mean of the two middle values.
+func meanMedian(sorted []int) (mean, median float64) {
+	n := len(sorted)
+	if n == 0 {
+		return 0, 0
+	}
+	for _, p := range sorted {
+		mean += float64(p)
+	}
+	mean /= float64(n)
+	if n%2 == 1 {
+		median = float64(sorted[n/2])
+	} else {
+		median = float64(sorted[n/2-1]+sorted[n/2]) / 2
+	}
+	return mean, median
+}
+
+// fmtPct prints a percentage with one decimal, dropping a trailing ".0".
+func fmtPct(p float64) string {
+	return strings.TrimSuffix(fmt.Sprintf("%.1f", p), ".0") + "%"
+}
+
+// classPercents returns the sorted grades of every student who has one.
+func (m *Model) classPercents() []int {
+	var ps []int
+	for _, st := range m.ds.Students {
+		if p := st.Percent(m.sd); p >= 0 {
+			ps = append(ps, p)
+		}
+	}
+	sort.Ints(ps)
+	return ps
+}
 
 func card(value, label string, style lipgloss.Style) string {
 	return sCard.Render(style.Bold(true).Render(value) + "\n" + sDim.Render(label))
@@ -23,10 +67,14 @@ func card(value, label string, style lipgloss.Style) string {
 func (v *overviewView) View(m *Model, w, h int) string {
 	ds := m.ds
 	var percents []int
-	var nSubs, delivered, full, errors int
+	var nStudents, nSubs, delivered, full, errors int
 	days := map[string]int{}
 	var firstDay, lastDay time.Time
 	for _, st := range ds.Students {
+		if v.onlyList && !m.inSelection(st.Login) {
+			continue
+		}
+		nStudents++
 		subs := st.SubsFor(m.sd)
 		nSubs += len(subs)
 		for _, s := range subs {
@@ -56,24 +104,35 @@ func (v *overviewView) View(m *Model, w, h int) string {
 		}
 	}
 	sort.Ints(percents)
-	mean, median := 0.0, 0
-	for _, p := range percents {
-		mean += float64(p)
-	}
-	if len(percents) > 0 {
-		mean /= float64(len(percents))
-		median = percents[len(percents)/2]
-	}
+	mean, median := meanMedian(percents)
 
 	var b strings.Builder
-	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n\n")
+	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n")
+	meanLabel, medianLabel := "mean", "median"
+	if v.onlyList {
+		b.WriteString(sAccent.Render(fmt.Sprintf("Selection only: %d students (--logins list + marked)", nStudents)) +
+			sDim.Render(" · f for the whole class") + "\n\n")
+		if nStudents == 0 {
+			b.WriteString(sDim.Render("No selection: use --logins list.txt or mark students with space in Ranking.") + "\n")
+			return b.String()
+		}
+		cMean, cMedian := meanMedian(m.classPercents())
+		meanLabel = "mean (class " + fmtPct(cMean) + ")"
+		medianLabel = "median (class " + fmtPct(cMedian) + ")"
+	} else {
+		scope := "Whole class"
+		if len(m.list) > 0 || countTrue(m.marked) > 0 {
+			scope += sDim.Render(" · f for the selection only")
+		}
+		b.WriteString(sAccent.Render(scope) + "\n\n")
+	}
 
 	cards := []string{
-		card(fmt.Sprint(len(ds.Students)), "students", sBold),
+		card(fmt.Sprint(nStudents), "students", sBold),
 		card(fmt.Sprint(delivered), "submitted", sGood),
-		card(fmt.Sprint(len(ds.Students)-delivered), "no submission", sBad),
-		card(fmt.Sprintf("%.1f%%", mean), "mean", pctStyle(int(mean))),
-		card(fmt.Sprintf("%d%%", median), "median", pctStyle(median)),
+		card(fmt.Sprint(nStudents-delivered), "no submission", sBad),
+		card(fmtPct(mean), meanLabel, pctStyle(int(mean))),
+		card(fmtPct(median), medianLabel, pctStyle(int(median))),
 		card(fmt.Sprint(full), "at 100%", sGood),
 		card(fmt.Sprint(nSubs), "submissions ("+m.sd+")", sAccent),
 	}
@@ -139,13 +198,21 @@ func (v *overviewView) View(m *Model, w, h int) string {
 
 	// Suspicion summary.
 	b.WriteString(sSectionHdr.Render("Possible plagiarism") + "\n")
-	strong := 0
+	strong, total := 0, 0
 	for _, p := range m.pairsTraces() {
+		if v.onlyList && !m.inSelection(p.A) && !m.inSelection(p.B) {
+			continue
+		}
+		total++
 		if p.Score >= 0.5 {
 			strong++
 		}
 	}
-	b.WriteString(fmt.Sprintf("  %s pairs with similar traces scoring ≥ 50%% (%d total)\n", sWarn.Render(fmt.Sprint(strong)), len(m.pairsTraces())))
+	involving := ""
+	if v.onlyList {
+		involving = " involving the selection"
+	}
+	b.WriteString(fmt.Sprintf("  %s pairs%s with similar traces scoring ≥ 50%% (%d total)\n", sWarn.Render(fmt.Sprint(strong)), involving, total))
 	if errors > 0 {
 		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), errors))
 	}
