@@ -156,9 +156,9 @@ func (t *traceTree) keys() []string {
 func (t *traceTree) handleKey(k string) bool {
 	sel := t.selected()
 	switch k {
-	case "up", "k":
+	case "up":
 		t.cursor--
-	case "down", "j":
+	case "down":
 		t.cursor++
 	case "pgup", "ctrl+u":
 		t.cursor -= max(1, t.visible-1)
@@ -173,7 +173,7 @@ func (t *traceTree) handleKey(k string) bool {
 			sel.expanded = !sel.expanded
 			t.flatten()
 		}
-	case "right", "l":
+	case "right":
 		if sel != nil && !sel.leaf() {
 			if !sel.expanded {
 				sel.expanded = true
@@ -182,7 +182,7 @@ func (t *traceTree) handleKey(k string) bool {
 				t.cursor++
 			}
 		}
-	case "left", "h":
+	case "left":
 		if sel == nil {
 			break
 		}

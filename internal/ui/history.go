@@ -165,11 +165,11 @@ func (v *historyView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		v.rebuild()
 	}
 	switch key {
-	case "tab", "right", "l":
+	case "tab", "right":
 		v.sec = (v.sec + 1) % (len(v.sections) + 1)
 		v.built = nil
 		return nil
-	case "shift+tab", "left", "h":
+	case "shift+tab", "left":
 		v.sec = (v.sec + len(v.sections)) % (len(v.sections) + 1)
 		v.built = nil
 		return nil

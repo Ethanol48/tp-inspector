@@ -317,9 +317,9 @@ func optionalColumns() []rankingColumn {
 func (c *columnsView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	cols := optionalColumns()
 	switch k.String() {
-	case "up", "k":
+	case "up":
 		c.cursor = max(0, c.cursor-1)
-	case "down", "j":
+	case "down":
 		c.cursor = min(len(cols)-1, c.cursor+1)
 	case " ", "enter", "x":
 		id := cols[c.cursor].id

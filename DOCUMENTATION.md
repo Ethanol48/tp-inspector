@@ -178,7 +178,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | Key | Action |
 |-----|--------|
 | `←/→`, `tab`, `1`–`5` | Switch tab (or section inside a detail view) |
-| `↑/↓`, `j/k`, `pgup/pgdn`, `g/G` | Move |
+| `↑/↓`, `pgup/pgdn`, `g/G` | Move |
 | `enter` | Open details / comparison |
 | `esc` | Back |
 | `q` | Back / quit |

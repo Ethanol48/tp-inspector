@@ -103,9 +103,9 @@ func (c *CleanModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "q", "esc":
 			return c, tea.Quit
-		case "up", "k":
+		case "up":
 			c.cursor = max(0, c.cursor-1)
-		case "down", "j":
+		case "down":
 			c.cursor = min(len(c.items)-1, c.cursor+1)
 		case " ", "x":
 			if c.cursor < len(c.items) {

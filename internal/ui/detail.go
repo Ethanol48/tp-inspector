@@ -165,10 +165,10 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 	switch key {
-	case "tab", "right", "l":
+	case "tab", "right":
 		v.sub = (v.sub + 1) % len(detailTabs)
 		return nil
-	case "shift+tab", "left", "h":
+	case "shift+tab", "left":
 		v.sub = (v.sub + len(detailTabs) - 1) % len(detailTabs)
 		return nil
 	}
