@@ -408,7 +408,7 @@ func (m *Model) View() string {
 // hints (help, back/quit) always stay.
 func (m *Model) footer(top view) string {
 	sep := sDim.Render(" · ")
-	optional := append(top.Keys(), keyHint("m", "submit/archi"), keyHint("e", "export"))
+	optional := append(top.Keys(), keyHint("m", "definition"), keyHint("e", "export"))
 	tail := []string{keyHint("?", "help")}
 	if len(m.stack) > 0 {
 		tail = append(tail, keyHint("esc", "back"))
@@ -550,7 +550,7 @@ func (m *Model) startClone() tea.Cmd {
 	var skipped []string
 	for _, l := range m.cloneSelection() {
 		st := m.student(l)
-		last := st.Last("submit")
+		last := st.Last(m.ds.Graded)
 		if last == nil || last.Ref == "" || st.Group.GitRemoteURL == "" {
 			skipped = append(skipped, l)
 			continue
@@ -560,7 +560,7 @@ func (m *Model) startClone() tea.Cmd {
 	if len(targets) == 0 {
 		msg := "Mark students with space in Ranking first"
 		if len(skipped) > 0 {
-			msg = "No submit to clone for: " + strings.Join(skipped, ", ")
+			msg = "No graded submission to clone for: " + strings.Join(skipped, ", ")
 		}
 		return m.setStatus(msg)
 	}

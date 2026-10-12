@@ -65,7 +65,8 @@ func (s *Student) Percent(sd string) int {
 type Dataset struct {
 	Slug      tp.Slug
 	Activity  forge.Activity
-	SDs       []string          // student submission definition short names, "submit" first
+	SDs       []string          // student submission definition short names, Graded first
+	Graded    string            // the definition that holds the grade ("submit", "submission"…), "" if none
 	SDURIs    map[string]string // short name -> full URI
 	Students  []*Student        // sorted by login
 	ByLogin   map[string]*Student
@@ -116,7 +117,8 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 		ds.SDs = append(ds.SDs, name)
 		ds.SDURIs[name] = u
 	}
-	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == "submit" && ds.SDs[j] != "submit" })
+	ds.Graded = GradedSDName(ds.SDs)
+	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == ds.Graded && ds.SDs[j] != ds.Graded })
 	if len(ds.SDs) == 0 {
 		return nil, fmt.Errorf("%s has no student submission definitions", act.URI)
 	}
