@@ -69,6 +69,15 @@ func (v *overviewView) View(m *Model, w, h int) string {
 		card(fmt.Sprint(cs.full), "at 100%", sGood),
 		card(fmt.Sprint(nSubs), "submissions ("+m.sd+")", sAccent),
 	})
+	if gs := computeStats(m.groupStudents(), m.sd); gs.n > 0 {
+		writeCards([]string{
+			card(fmt.Sprint(gs.n), "your group", sAccent),
+			card(fmt.Sprintf("%d/%d", gs.delivered, gs.n), "group submitted", sGood),
+			card(fmt.Sprintf("%.1f%%", gs.mean), "group mean "+deltaCell(gs.mean-cs.mean, ""), pctStyle(int(gs.mean))),
+			card(fmt.Sprintf("%.1f%%", gs.median), "group median "+deltaCell(gs.median-cs.median, ""), pctStyle(int(gs.median))),
+		})
+		b.WriteString(sDim.Render("  details in the Group tab (2)") + "\n")
+	}
 	b.WriteString("\n")
 
 	// Grade histogram.
