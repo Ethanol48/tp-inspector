@@ -62,9 +62,9 @@ func (t *Table) Cursor() int { return t.cursor }
 func (t *Table) HandleKey(k string) bool {
 	page := max(1, t.visible-1)
 	switch k {
-	case "up", "k":
+	case "up":
 		t.cursor--
-	case "down", "j":
+	case "down":
 		t.cursor++
 	case "pgup", "ctrl+u":
 		t.cursor -= page

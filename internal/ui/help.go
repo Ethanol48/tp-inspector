@@ -19,7 +19,7 @@ func (v *helpView) View(m *Model, w, h int) string {
 	return strings.Join([]string{
 		sec("General"),
 		k("←/→ tab 1-5", "switch tab"),
-		k("↑/↓ j/k", "move; pgup/pgdn, g/G top/bottom"),
+		k("↑/↓", "move; pgup/pgdn, g/G top/bottom"),
 		k("enter", "open details / comparison"),
 		k("esc q", "back / quit"),
 		k("m", "switch submission definition (submit / submission ↔ archi)"),
