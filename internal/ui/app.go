@@ -586,9 +586,12 @@ func (m *Model) export() (string, error) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	_ = w.Write([]string{"kind", "student_a", "student_b", "score", "details"})
+	_ = w.Write([]string{"kind", "student_a", "student_b", "level", "score", "reason",
+		"overlap", "identical", "evidence", "shared", "rare_shared", "details"})
 	for _, p := range m.pairsTraces() {
-		_ = w.Write([]string{"traces", p.A, p.B, fmt.Sprintf("%.3f", p.Score),
+		_ = w.Write([]string{"traces", p.A, p.B, p.Level().String(), fmt.Sprintf("%.3f", p.Score), p.Reason(),
+			fmt.Sprintf("%.3f", p.Jaccard), fmt.Sprintf("%.3f", p.Identical), fmt.Sprintf("%.3f", p.Evidence),
+			fmt.Sprint(len(p.Shared)), fmt.Sprint(p.Rare),
 			fmt.Sprintf("%d shared failures, %d with identical output", len(p.Shared), p.SameMsg)})
 	}
 	w.Flush()

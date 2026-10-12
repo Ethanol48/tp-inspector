@@ -32,7 +32,7 @@ var rankingColumns = []rankingColumn{
 	{id: "subs", col: Column{Title: "Subs", Width: 6, Right: true}, optional: true, desc: "number of submissions"},
 	{id: "status", col: Column{Title: "Status", Width: 12}, optional: true, desc: "status of the last submission"},
 	{id: "ip", col: Column{Title: "IP", Width: 15}, optional: true, desc: "IP of the graded submission"},
-	{id: "traces", col: Column{Title: "Traces", Width: 6, Right: true}, optional: true, desc: "best trace similarity score"},
+	{id: "traces", col: Column{Title: "Suspicion", Width: 9}, optional: true, desc: "highest suspicion level (high / medium / low) of their pairs"},
 }
 
 // defaultHidden are the optional columns hidden until the user shows them.
@@ -182,7 +182,7 @@ func (v *rankingView) rebuild(m *Model) {
 			"rank": sDim.Render(fmt.Sprint(i + 1)), "mark": mark, "login": e.st.Login,
 			"grade": pctCell(e.pct), "bar": pctBar(e.pct, 12), "tag": tag, "date": date,
 			"subs": fmt.Sprint(e.n), "status": statusCell(si), "ip": ip,
-			"traces": scoreCell(e.tr),
+			"traces": levelCell(e.tr),
 		}
 		row := Row{Key: e.st.Login}
 		for _, rc := range rankingColumns {

@@ -116,26 +116,26 @@ func (v *detailView) rebuild(m *Model) {
 	v.tTags.Empty = "No submissions."
 	v.tTags.SetRows(rows)
 
-	v.tSus.Cols = []Column{{Title: "Signal", Width: 8}, {Title: "With", Width: 0}, {Title: "Score", Width: 5, Right: true}, {Title: "", Width: 12}}
+	v.tSus.Cols = []Column{{Title: "Level", Width: 6}, {Title: "With", Width: 24}, {Title: "Why", Width: 0}, {Title: "Score", Width: 5, Right: true}}
 	v.pairs = map[string][2]string{}
 	rows = nil
 	type sus struct {
-		kind, other string
-		score       float64
+		kind, other, why string
+		score            float64
 	}
 	var ss []sus
 	for _, p := range m.pairsTraces() {
 		if p.A == v.login {
-			ss = append(ss, sus{"traces", p.B, p.Score})
+			ss = append(ss, sus{"traces", p.B, p.Reason(), p.Score})
 		} else if p.B == v.login {
-			ss = append(ss, sus{"traces", p.A, p.Score})
+			ss = append(ss, sus{"traces", p.A, p.Reason(), p.Score})
 		}
 	}
 	sort.Slice(ss, func(i, j int) bool { return ss[i].score > ss[j].score })
 	for i, s := range ss {
 		key := fmt.Sprint(i)
 		v.pairs[key] = [2]string{s.other, s.kind}
-		rows = append(rows, Row{Key: key, Cells: []string{sDim.Render(s.kind), s.other, scoreCell(s.score), bar(s.score, 12, sAccent)}})
+		rows = append(rows, Row{Key: key, Cells: []string{levelCell(s.score), s.other, s.why, sDim.Render(scorePct(s.score))}})
 	}
 	v.tSus.Empty = "No suspicious pair with this student."
 	v.tSus.SetRows(rows)

@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -26,6 +27,67 @@ type TracePair struct {
 	FailA      int
 	FailB      int
 	Population int
+
+	// The factors of Score, to explain it.
+	Identical float64 // share of shared failures with an identical output, 0..1
+	Evidence  float64 // 0..1, grows with the weight of shared uncommon failures
+	Rare      int     // shared failures with DF <= RareMax(Population)
+	RareSame  int     // rare shared failures with an identical output
+}
+
+// RareMax is the number of failing students up to which a failure is called
+// rare in a class of n.
+func RareMax(n int) int { return max(3, n/50) }
+
+// Level is a coarse, readable reading of a pair's score.
+type Level int
+
+const (
+	Low Level = iota
+	Medium
+	High
+)
+
+func (l Level) String() string {
+	switch l {
+	case High:
+		return "high"
+	case Medium:
+		return "medium"
+	}
+	return "low"
+}
+
+// LevelOf maps a score to a level: high from 0.8, medium from 0.5.
+func LevelOf(score float64) Level {
+	switch {
+	case score >= 0.8:
+		return High
+	case score >= 0.5:
+		return Medium
+	}
+	return Low
+}
+
+// Level of the pair.
+func (p TracePair) Level() Level { return LevelOf(p.Score) }
+
+// Reason summarizes in words why the pair stands out.
+func (p TracePair) Reason() string {
+	if p.Rare == 0 {
+		return plural(len(p.Shared), "shared fail", "shared fails") + ", " +
+			plural(p.SameMsg, "identical output", "identical outputs")
+	}
+	return fmt.Sprintf("%s in common (≤%d students each), %s",
+		plural(p.Rare, "rare fail", "rare fails"), RareMax(p.Population),
+		plural(p.RareSame, "identical output", "identical outputs"))
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, one)
+	}
+	return fmt.Sprintf("%d %s", n, many)
 }
 
 // EvidenceScale is the shared IDF weight at which a pair gets ~63% of its
@@ -199,9 +261,19 @@ func CompareTraces(traces map[string]*trace.Trace, opt TraceOptions) []TracePair
 			continue
 		}
 		sort.Slice(a.shared, func(i, j int) bool { return a.shared[i].DF < a.shared[j].DF })
+		rare, rareSame := 0, 0
+		for _, sf := range a.shared {
+			if sf.DF <= RareMax(n) {
+				rare++
+				if sf.SameMsg {
+					rareSame++
+				}
+			}
+		}
 		la, lb := logins[k[0]], logins[k[1]]
 		out = append(out, TracePair{A: la, B: lb, Score: score, Jaccard: j, SameMsg: a.same, Shared: a.shared,
-			FailA: informative[k[0]], FailB: informative[k[1]], Population: n})
+			FailA: informative[k[0]], FailB: informative[k[1]], Population: n,
+			Identical: float64(a.same) / float64(len(a.shared)), Evidence: evidence, Rare: rare, RareSame: rareSame})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Score != out[j].Score {

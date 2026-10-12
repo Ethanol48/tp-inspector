@@ -236,9 +236,11 @@ func (v *compareView) View(m *Model, w, h int) string {
 
 	// Pair-level signals.
 	var sig []string
+	why := ""
 	for _, p := range m.pairsTraces() {
 		if p.A == v.a && p.B == v.b || p.A == v.b && p.B == v.a {
-			sig = append(sig, "traces "+scoreCell(p.Score))
+			sig = append(sig, "traces: "+levelCell(p.Score)+sDim.Render(" — ")+p.Reason())
+			why = "\n" + lipgloss.NewStyle().MaxWidth(w).Render(strings.Join(whyLines(p), "\n"))
 		}
 	}
 	ia, ib := ipsOf(m.student(v.a)), ipsOf(m.student(v.b))
@@ -253,12 +255,12 @@ func (v *compareView) View(m *Model, w, h int) string {
 		sig = append(sig, sWarn.Render("same IP: "+strings.Join(common, ", ")))
 	}
 	if len(sig) == 0 {
-		sig = append(sig, sDim.Render("no signals"))
+		sig = append(sig, sDim.Render("no signals: their failures are not alike enough to be listed in Traces"))
 	}
-	head += "\n" + strings.Join(sig, sDim.Render("  ·  "))
+	head += "\n" + strings.Join(sig, sDim.Render("  ·  ")) + why
 
 	body := ""
-	bodyH := h - 5
+	bodyH := h - 5 - strings.Count(why, "\n")
 	switch v.sub {
 	case 0:
 		panelH := 4

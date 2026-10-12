@@ -8,6 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"tp-inspector/internal/analysis"
 )
 
 type overviewView struct{}
@@ -139,13 +141,14 @@ func (v *overviewView) View(m *Model, w, h int) string {
 
 	// Suspicion summary.
 	b.WriteString(sSectionHdr.Render("Possible plagiarism") + "\n")
-	strong := 0
+	var byLevel [3]int
 	for _, p := range m.pairsTraces() {
-		if p.Score >= 0.5 {
-			strong++
-		}
+		byLevel[p.Level()]++
 	}
-	b.WriteString(fmt.Sprintf("  %s pairs with similar traces scoring ≥ 50%% (%d total)\n", sWarn.Render(fmt.Sprint(strong)), len(m.pairsTraces())))
+	b.WriteString(fmt.Sprintf("  %s high · %s medium · %s low pairs with similar traces\n",
+		sBad.Bold(true).Render(fmt.Sprint(byLevel[analysis.High])), sWarn.Render(fmt.Sprint(byLevel[analysis.Medium])),
+		sDim.Render(fmt.Sprint(byLevel[analysis.Low]))))
+	b.WriteString(sDim.Render("  see the Traces tab: each pair says why it stands out") + "\n")
 	if errors > 0 {
 		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), errors))
 	}
