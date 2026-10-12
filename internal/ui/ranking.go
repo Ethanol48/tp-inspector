@@ -8,10 +8,14 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"tp-inspector/internal/analysis"
 	"tp-inspector/internal/data"
+	"tp-inspector/internal/forge"
 )
 
-var rankingSorts = []string{"grade", "submission time", "login", "submissions", "suspicion"}
+// rankingSorts are the orders s cycles through. Risk comes right after grade:
+// it is known for everyone, suspicion only once repos are analysed.
+var rankingSorts = []string{"grade", "risk", "submission time", "login", "submissions", "suspicion"}
 
 // rankingColumn is a column of the Ranking tab; optional ones can be hidden.
 type rankingColumn struct {
@@ -29,10 +33,14 @@ var rankingColumns = []rankingColumn{
 	{id: "bar", col: Column{Title: "", Width: 12}, optional: true, desc: "grade bar"},
 	{id: "tag", col: Column{Title: "Tag", Width: 16}, optional: true, desc: "tag of the graded submission"},
 	{id: "date", col: Column{Title: "Submitted", Width: 11}, optional: true, desc: "time of the graded submission"},
+	{id: "when", col: Column{Title: "In window", Width: 10}, optional: true, desc: "graded submission, from the opening (+) or before the closing (-)"},
 	{id: "subs", col: Column{Title: "Subs", Width: 6, Right: true}, optional: true, desc: "number of submissions"},
 	{id: "status", col: Column{Title: "Status", Width: 12}, optional: true, desc: "status of the last submission"},
 	{id: "ip", col: Column{Title: "IP", Width: 15}, optional: true, desc: "IP of the graded submission"},
-	{id: "traces", col: Column{Title: "Suspicion", Width: 9}, optional: true, desc: "highest suspicion level (high / medium / low) of their pairs"},
+	{id: "risk", col: Column{Title: "Risk", Width: 6}, optional: true, desc: "high grade reached very early, very late or in one jump"},
+	{id: "suspicion", col: Column{Title: "Suspicion", Width: 9}, optional: true, desc: "risk, code and AI combined: 1 − (1−risk)(1−code)(1−AI), once the repo is analysed"},
+	{id: "code", col: Column{Title: "Code", Width: 6}, optional: true, desc: "best pair sharing code (repos on disk only)"},
+	{id: "ai", col: Column{Title: "AI", Width: 6}, optional: true, desc: "repo looks AI-generated (repos on disk only)"},
 }
 
 // defaultHidden are the optional columns hidden until the user shows them.
@@ -86,8 +94,9 @@ func (v *rankingView) Keys() []string {
 	if v.filtering {
 		return []string{keyHint("enter", "apply"), keyHint("esc", "clear filter")}
 	}
-	return []string{keyHint("enter", "trace"), keyHint("s", "sort: "+rankingSorts[v.sortMode]), keyHint("r", "reverse"),
-		keyHint("/", "filter"), keyHint("c", "compare"), keyHint("H", "history"), keyHint("f", "selection"), keyHint("v", "columns")}
+	return []string{keyHint("enter", "student"), keyHint("space", "mark"), keyHint("c", "compare marked"),
+		keyHint("s", "sort: "+rankingSorts[v.sortMode]), keyHint("r", "reverse"), keyHint("/", "filter"),
+		keyHint("H", "history"), keyHint("f", "selection"), keyHint("v", "columns")}
 }
 
 func statusCell(last *statusInfo) string {
@@ -109,10 +118,12 @@ type statusInfo struct{ status, err string }
 
 func (v *rankingView) rebuild(m *Model) {
 	type entry struct {
-		st  *data.Student
-		pct int
-		n   int
-		tr  float64
+		st    *data.Student
+		pct   int
+		n     int
+		risk  float64
+		sus   float64
+		known bool // suspicion known: the repo was analysed
 	}
 	q := strings.ToLower(strings.TrimSpace(v.filter.Value()))
 	var es []entry
@@ -123,16 +134,21 @@ func (v *rankingView) rebuild(m *Model) {
 		if v.onlyList && !m.list[st.Login] && !m.marked[st.Login] {
 			continue
 		}
-		es = append(es, entry{st, st.Percent(m.sd), len(st.SubsFor(m.sd)), m.suspicionOf(st.Login)})
+		sus, known := m.suspicionOf(st.Login)
+		es = append(es, entry{st, st.Percent(m.sd), len(st.SubsFor(m.sd)), m.riskOf(st.Login), sus, known})
 	}
 	less := func(a, b entry) bool {
 		la, lb := a.st.Last(m.sd), b.st.Last(m.sd)
-		switch v.sortMode {
-		case 0:
+		switch rankingSorts[v.sortMode] {
+		case "grade":
 			if a.pct != b.pct {
 				return a.pct > b.pct
 			}
-		case 1:
+		case "risk":
+			if a.risk != b.risk {
+				return a.risk > b.risk
+			}
+		case "submission time":
 			switch {
 			case la == nil && lb != nil:
 				return false
@@ -141,13 +157,20 @@ func (v *rankingView) rebuild(m *Model) {
 			case la != nil && lb != nil && !la.ReceivedAt.Equal(lb.ReceivedAt):
 				return la.ReceivedAt.Before(lb.ReceivedAt)
 			}
-		case 3:
+		case "submissions":
 			if a.n != b.n {
 				return a.n > b.n
 			}
-		case 4:
-			if a.tr != b.tr {
-				return a.tr > b.tr
+		case "suspicion":
+			// Analysed students first by suspicion, then the others by risk.
+			if a.known != b.known {
+				return a.known
+			}
+			if a.known && a.sus != b.sus {
+				return a.sus > b.sus
+			}
+			if a.risk != b.risk {
+				return a.risk > b.risk
 			}
 		}
 		return a.st.Login < b.st.Login
@@ -182,7 +205,8 @@ func (v *rankingView) rebuild(m *Model) {
 			"rank": sDim.Render(fmt.Sprint(i + 1)), "mark": mark, "login": e.st.Login,
 			"grade": pctCell(e.pct), "bar": pctBar(e.pct, 12), "tag": tag, "date": date,
 			"subs": fmt.Sprint(e.n), "status": statusCell(si), "ip": ip,
-			"traces": levelCell(e.tr),
+			"suspicion": suspicionCell(m, e.st.Login), "risk": levelCell(m.riskOf(e.st.Login)),
+			"code": codeCell(m, e.st.Login), "ai": aiCell(m, e.st.Login), "when": whenCell(m.window(), last),
 		}
 		row := Row{Key: e.st.Login}
 		for _, rc := range rankingColumns {
@@ -355,4 +379,42 @@ func (c *columnsView) View(m *Model, w, h int) string {
 		lines = append(lines, fmt.Sprintf("%s%s %-10s %s", prefix, box, title, sDim.Render(rc.desc)))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// whenCell places a submission in the window: close to the opening as
+// "+3h", close to the closing as "-12min".
+func whenCell(w analysis.Window, sub *forge.Submission) string {
+	if sub == nil || w.Close.Sub(w.Open) <= 0 {
+		return sDim.Render("—")
+	}
+	f := w.Fraction(sub.ReceivedAt)
+	var txt string
+	if f < 0.5 {
+		txt = "+" + fmtDuration(sub.ReceivedAt.Sub(w.Open))
+	} else if sub.ReceivedAt.After(w.Close) {
+		return sBad.Render("late " + fmtDuration(sub.ReceivedAt.Sub(w.Close)))
+	} else {
+		txt = "-" + fmtDuration(w.Close.Sub(sub.ReceivedAt))
+	}
+	if f < analysis.SoonFraction || f > 1-analysis.LateFraction {
+		return sWarn.Render(txt)
+	}
+	return sDim.Render(txt)
+}
+
+func codeCell(m *Model, login string) string {
+	if m.code == nil || m.code.Repos[login] == nil {
+		return sDim.Render("·")
+	}
+	if s := m.codeBest[login]; s > 0 {
+		return levelCell(s)
+	}
+	return sGood.Render("none")
+}
+
+func aiCell(m *Model, login string) string {
+	if s, ok := m.aiOf(login); ok {
+		return levelCell(s.Score)
+	}
+	return sDim.Render("·")
 }

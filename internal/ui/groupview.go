@@ -21,7 +21,7 @@ type groupView struct {
 	tMem, tEx   Table
 	class, grp  gradeStats
 	avgPctl     int
-	suspectPair int // pairs with level ≥ medium involving the group
+	suspectPair int // code pairs with level ≥ medium involving the group
 }
 
 func (v *groupView) Title() string { return "Group" }
@@ -50,7 +50,8 @@ func (v *groupView) rebuild(m *Model) {
 	var ms []member
 	sumPctl, nPctl := 0, 0
 	for _, st := range members {
-		e := member{login: st.Login, pct: st.Percent(m.sd), score: m.suspicionOf(st.Login)}
+		sus, known := m.suspicionOf(st.Login)
+		e := member{login: st.Login, pct: st.Percent(m.sd), score: sus}
 		last := st.Last(m.sd)
 		switch {
 		case last == nil:
@@ -65,7 +66,7 @@ func (v *groupView) rebuild(m *Model) {
 				e.flags = append(e.flags, sWarn.Render("bottom 25%"))
 			}
 		}
-		if analysis.LevelOf(e.score) >= analysis.Medium {
+		if known && analysis.LevelOf(e.score) >= analysis.Medium {
 			e.flags = append(e.flags, sWarn.Render("suspect"))
 		}
 		ms = append(ms, e)
@@ -97,7 +98,7 @@ func (v *groupView) rebuild(m *Model) {
 			si = &statusInfo{last.Status, last.Error}
 		}
 		rows[i] = Row{Key: e.login, Cells: []string{e.login, pctCell(e.pct), pctBar(e.pct, 12), pctl,
-			statusCell(si), levelCell(e.score), strings.Join(e.flags, sDim.Render(", "))}}
+			statusCell(si), suspicionCell(m, e.login), strings.Join(e.flags, sDim.Render(", "))}}
 	}
 	v.tMem.Empty = "No group: pass --logins list.txt or mark students with space in Ranking."
 	v.tMem.SetRows(rows)
@@ -133,8 +134,8 @@ func (v *groupView) rebuild(m *Model) {
 	v.tEx.SetRows(rows)
 
 	v.suspectPair = 0
-	for _, p := range m.pairsTraces() {
-		if pairInvolves(p, g) && p.Level() >= analysis.Medium {
+	for _, p := range m.codePairs() {
+		if pairInvolves(p.A, p.B, g) && p.Level() >= analysis.Medium {
 			v.suspectPair++
 		}
 	}
@@ -198,7 +199,7 @@ func (v *groupView) statsTable() string {
 	if v.suspectPair > 0 {
 		sus = sWarn.Render(fmt.Sprint(v.suspectPair))
 	}
-	lines = append(lines, sDim.Render(padRight("suspect pairs", 15))+padLeft(sus, 8)+sDim.Render("   medium or high, with a group member (Traces tab)"))
+	lines = append(lines, sDim.Render(padRight("code pairs", 15))+padLeft(sus, 8)+sDim.Render("   sharing code (medium or high) with a group member (Code tab)"))
 	return strings.Join(lines, "\n")
 }
 

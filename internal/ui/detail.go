@@ -22,7 +22,7 @@ var detailTabs = []string{"Trace", "Tags", "Suspects"}
 const traceSD = "submit"
 
 // detailView is a student: the graded submit trace, every tag they pushed,
-// then suspicious pairs.
+// then the signals about them.
 type detailView struct {
 	login  string
 	sub    int
@@ -33,6 +33,10 @@ type detailView struct {
 	tSus   Table
 	subs   map[string]forge.Submission // row key -> submission
 	pairs  map[string][2]string        // row key -> {other, section}
+	// Set at render, for Keys: the code pair under the cursor in Suspects
+	// and whether the student is marked.
+	selOther string
+	marked   bool
 }
 
 func newDetailView(login string) *detailView { return &detailView{login: login, gen: -1} }
@@ -47,9 +51,20 @@ func (v *detailView) Keys() []string {
 		}
 		return k
 	case 1:
-		return []string{keyHint("enter", "trace of a submit tag"), keyHint("tab", "section")}
+		return []string{keyHint("enter", "trace of a submit tag"), v.markHint(), keyHint("tab", "section"), keyHint("H", "history")}
 	}
-	return []string{keyHint("enter", "compare"), keyHint("tab", "section")}
+	var k []string
+	if v.selOther != "" {
+		k = append(k, keyHint("enter", "compare with "+v.selOther))
+	}
+	return append(k, v.markHint(), keyHint("tab", "section"), keyHint("H", "history"))
+}
+
+func (v *detailView) markHint() string {
+	if v.marked {
+		return keyHint("space", "unmark")
+	}
+	return keyHint("space", "mark (to clone / compare)")
 }
 
 // submitDF returns, for the graded submit traces of the class, how many
@@ -116,28 +131,42 @@ func (v *detailView) rebuild(m *Model) {
 	v.tTags.Empty = "No submissions."
 	v.tTags.SetRows(rows)
 
-	v.tSus.Cols = []Column{{Title: "Level", Width: 6}, {Title: "With", Width: 24}, {Title: "Why", Width: 0}, {Title: "Score", Width: 5, Right: true}}
+	v.tSus.Cols = []Column{{Title: "Signal", Width: 6}, {Title: "Level", Width: 6}, {Title: "With / where", Width: 28}, {Title: "Why", Width: 0}, {Title: "Score", Width: 5, Right: true}}
 	v.pairs = map[string][2]string{}
 	rows = nil
+	if r, ok := m.riskScores()[v.login]; ok {
+		why := strings.Join(r.Reasons, "; ")
+		if why == "" {
+			why = sDim.Render("no timing or jump signal")
+		}
+		rows = append(rows, Row{Key: "risk", Cells: []string{sDim.Render("risk"), levelCell(r.Score), sDim.Render("submissions"), why, sDim.Render(scorePct(r.Score))}})
+	}
+	if s, ok := m.aiOf(v.login); ok {
+		rows = append(rows, Row{Key: "ai", Cells: []string{sDim.Render("AI"), levelCell(s.Score), sDim.Render("whole repo"), s.Reason(), sDim.Render(scorePct(s.Score))}})
+		for i, ff := range s.TopFuncs {
+			rows = append(rows, Row{Key: fmt.Sprint("ai", i), Cells: []string{"", "", sDim.Render(fmt.Sprintf("%s:%d", ff.Func.File, ff.Func.Start)),
+				ff.Func.Name + sDim.Render(" — "+strings.Join(ff.Why, ", ")), ""}})
+		}
+	}
 	type sus struct {
-		kind, other, why string
-		score            float64
+		other, why string
+		score      float64
 	}
 	var ss []sus
-	for _, p := range m.pairsTraces() {
+	for _, p := range m.codePairs() {
 		if p.A == v.login {
-			ss = append(ss, sus{"traces", p.B, p.Reason(), p.Score})
+			ss = append(ss, sus{p.B, p.Reason(), p.Score})
 		} else if p.B == v.login {
-			ss = append(ss, sus{"traces", p.A, p.Reason(), p.Score})
+			ss = append(ss, sus{p.A, p.Reason(), p.Score})
 		}
 	}
 	sort.Slice(ss, func(i, j int) bool { return ss[i].score > ss[j].score })
 	for i, s := range ss {
-		key := fmt.Sprint(i)
-		v.pairs[key] = [2]string{s.other, s.kind}
-		rows = append(rows, Row{Key: key, Cells: []string{levelCell(s.score), s.other, s.why, sDim.Render(scorePct(s.score))}})
+		key := fmt.Sprint("code", i)
+		v.pairs[key] = [2]string{s.other, "code"}
+		rows = append(rows, Row{Key: key, Cells: []string{sDim.Render("code"), levelCell(s.score), s.other, s.why, sDim.Render(scorePct(s.score))}})
 	}
-	v.tSus.Empty = "No suspicious pair with this student."
+	v.tSus.Empty = "No signal for this student."
 	v.tSus.SetRows(rows)
 }
 
@@ -171,6 +200,14 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		v.sub = (v.sub + len(detailTabs) - 1) % len(detailTabs)
 		return nil
 	}
+	if key == " " {
+		m.marked[v.login] = !m.marked[v.login]
+		m.gen++
+		if m.marked[v.login] {
+			return m.setStatus(v.login + " marked")
+		}
+		return m.setStatus(v.login + " unmarked")
+	}
 	t := []*Table{nil, &v.tTags, &v.tSus}[v.sub]
 	if t.HandleKey(key) {
 		return nil
@@ -191,7 +228,9 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		return tv.load(m)
 	}
 	if sel := v.tSus.Selected(); sel != nil {
-		m.push(newCompareView(v.login, v.pairs[sel.Key][0]))
+		if other := v.pairs[sel.Key][0]; other != "" {
+			m.push(newCompareView(v.login, other))
+		}
 	}
 	return nil
 }
@@ -237,6 +276,10 @@ func (v *detailView) View(m *Model, w, h int) string {
 		v.rebuild(m)
 		v.gen = m.gen
 	}
+	v.marked, v.selOther = m.marked[v.login], ""
+	if sel := v.tSus.Selected(); v.sub == 2 && sel != nil {
+		v.selOther = v.pairs[sel.Key][0]
+	}
 	lines := studentHeader(m, st, w)
 	bodyH := h - len(lines) - 3
 	var body string
@@ -260,7 +303,25 @@ func (v *detailView) View(m *Model, w, h int) string {
 	case 1:
 		body = v.tTags.View(w, bodyH-1) + "\n" + sDim.Render("  ★ graded submission · enter opens the trace of a submit tag (archi tags are not browsable)")
 	default:
-		body = v.tSus.View(w, bodyH)
+		var expl []string
+		if sel := v.tSus.Selected(); sel != nil {
+			switch {
+			case sel.Key == "risk":
+				expl = riskLines(m, m.riskScores()[v.login])
+			case strings.HasPrefix(sel.Key, "ai"):
+				if s, ok := m.aiOf(v.login); ok {
+					expl = aiLines(s)
+				}
+			}
+		}
+		if m.code == nil || m.code.Repos[v.login] == nil {
+			expl = append(expl, sDim.Render("Repo not analysed: clone it in the Repos tab to check shared and generated code."))
+		}
+		tail := ""
+		if len(expl) > 0 {
+			tail = "\n\n" + lipgloss.NewStyle().MaxWidth(w).Render(strings.Join(expl, "\n"))
+		}
+		body = v.tSus.View(w, max(3, bodyH-strings.Count(tail, "\n"))) + tail
 	}
 	return strings.Join(lines, "\n") + "\n\n" + renderTabs(detailTabs, v.sub) + "\n" + body
 }

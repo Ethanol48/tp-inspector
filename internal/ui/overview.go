@@ -46,7 +46,14 @@ func (v *overviewView) View(m *Model, w, h int) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n\n")
+	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n")
+	if win := ds.Window(m.sd); win != nil {
+		b.WriteString(sDim.Render(fmt.Sprintf("%s open %s → close %s (%s)", m.sd, fmtTime(win.OpeningAt), fmtTime(win.ClosingAt),
+			fmtDuration(win.ClosingAt.Sub(win.OpeningAt)))) + "\n")
+	} else {
+		b.WriteString(sDim.Render("no submission window from the API for "+m.sd+": timing uses the class's first and last submissions") + "\n")
+	}
+	b.WriteString("\n")
 
 	// writeCards wraps cards to the available width.
 	writeCards := func(cards []string) {
@@ -130,23 +137,46 @@ func (v *overviewView) View(m *Model, w, h int) string {
 	}
 
 	// Suspicion summary.
-	b.WriteString(sSectionHdr.Render("Possible plagiarism") + "\n")
-	var byLevel [3]int
+	b.WriteString(sSectionHdr.Render("Possible cheating") + "\n")
 	g := m.group()
-	inGroup := 0
-	for _, p := range m.pairsTraces() {
-		byLevel[p.Level()]++
-		if pairInvolves(p, g) {
-			inGroup++
+	var risk [3]int
+	for _, r := range m.riskScores() {
+		if r.Score >= 0.5 {
+			risk[r.Level()]++
 		}
 	}
-	line := fmt.Sprintf("  %s high · %s medium · %s low pairs with similar traces",
-		sBad.Bold(true).Render(fmt.Sprint(byLevel[analysis.High])), sWarn.Render(fmt.Sprint(byLevel[analysis.Medium])),
-		sDim.Render(fmt.Sprint(byLevel[analysis.Low])))
-	if len(g) > 0 {
-		line += fmt.Sprintf(" (%s involve your group)", sAccent.Render(fmt.Sprint(inGroup)))
+	b.WriteString(fmt.Sprintf("  %s high · %s medium risk: high grade reached at the very start or end of the window, or in one jump\n",
+		sBad.Bold(true).Render(fmt.Sprint(risk[analysis.High])), sWarn.Render(fmt.Sprint(risk[analysis.Medium]))))
+	switch {
+	case m.analyzing:
+		b.WriteString("  " + sAccent.Render(fmt.Sprintf("analysing repos %d/%d…", m.anProg.done, m.anProg.total)) + "\n")
+	case m.code == nil:
+		b.WriteString("  " + sDim.Render("code not analysed: press A in the Repos tab to clone "+m.classLabel()) + "\n")
+	default:
+		var code, ai [3]int
+		inGroup := 0
+		for _, p := range m.codePairs() {
+			code[p.Level()]++
+			if pairInvolves(p.A, p.B, g) {
+				inGroup++
+			}
+		}
+		for _, s := range m.code.AI {
+			if s.Score >= 0.5 {
+				ai[s.Level()]++
+			}
+		}
+		line := fmt.Sprintf("  %s high · %s medium · %s low pairs sharing code among %d repos",
+			sBad.Bold(true).Render(fmt.Sprint(code[analysis.High])), sWarn.Render(fmt.Sprint(code[analysis.Medium])),
+			sDim.Render(fmt.Sprint(code[analysis.Low])), len(m.code.Repos))
+		if len(g) > 0 {
+			line += fmt.Sprintf(" (%s involve your group)", sAccent.Render(fmt.Sprint(inGroup)))
+		}
+		b.WriteString(line + "\n")
+		b.WriteString(fmt.Sprintf("  %s high · %s medium repos that look AI-generated\n",
+			sBad.Bold(true).Render(fmt.Sprint(ai[analysis.High])), sWarn.Render(fmt.Sprint(ai[analysis.Medium]))))
 	}
-	b.WriteString(line + "\n" + sDim.Render("  see the Traces tab: each pair says why it stands out") + "\n")
+	b.WriteString(sDim.Render("  Ranking sorted by suspicion lists the students to check first; the Code tab lists the pairs") + "\n")
 	if cs.errors > 0 {
 		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), cs.errors))
 	}
