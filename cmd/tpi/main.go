@@ -158,32 +158,32 @@ func clean(root string, args []string) error {
 			bytes += e.DataBytes
 		}
 	}
-	
+
 	what := fmt.Sprintf("%d cloned repos (%s)", nRepos, data.HumanBytes(bytes))
 	if *all {
 		what = fmt.Sprintf("the whole cache %s: %d assignments, %d repos (%s)", root, len(entries), nRepos, data.HumanBytes(bytes))
 	}
-	
+
 	if len(entries) == 0 || (*reposOnly && nRepos == 0) {
 		fmt.Fprintln(os.Stderr, "Nothing to delete.")
 		return nil
 	}
-	
+
 	if !*yes && !confirm("Delete "+what+"?") {
 		fmt.Fprintln(os.Stderr, "Cancelled.")
 		return nil
 	}
-	
+
 	if *all {
 		err = data.RemoveEverything(root)
 	} else {
 		err = data.RemoveAllRepos(root)
 	}
-	
+
 	if err == nil {
 		fmt.Fprintln(os.Stderr, "Deleted", what+".")
 	}
-	
+
 	return err
 }
 
@@ -211,7 +211,7 @@ func dump(c *forge.Client, path string, kv []string) {
 
 	b, err := c.GetRaw(path, q)
 	exitOn(err)
-	
+
 	var v any
 	if json.Unmarshal(b, &v) == nil {
 		b, _ = json.MarshalIndent(v, "", "  ")
