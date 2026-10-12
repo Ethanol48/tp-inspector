@@ -246,6 +246,7 @@ func (v *rankingView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	case " ":
 		if sel != nil {
 			m.marked[sel.Key] = !m.marked[sel.Key]
+			m.gen++ // the group changed
 			v.gen = -1
 			v.t.HandleKey("down")
 		}

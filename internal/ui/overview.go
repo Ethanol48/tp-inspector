@@ -24,8 +24,9 @@ func card(value, label string, style lipgloss.Style) string {
 
 func (v *overviewView) View(m *Model, w, h int) string {
 	ds := m.ds
-	var percents []int
-	var nSubs, delivered, full, errors int
+	cs := computeStats(ds.Students, m.sd)
+	percents := cs.percents
+	var nSubs int
 	days := map[string]int{}
 	var firstDay, lastDay time.Time
 	for _, st := range ds.Students {
@@ -42,53 +43,33 @@ func (v *overviewView) View(m *Model, w, h int) string {
 				lastDay = day
 			}
 		}
-		last := st.Last(m.sd)
-		if last == nil {
-			continue
-		}
-		delivered++
-		if last.Status == "ERROR" {
-			errors++
-		}
-		if p := st.Percent(m.sd); p >= 0 {
-			percents = append(percents, p)
-			if p == 100 {
-				full++
-			}
-		}
-	}
-	sort.Ints(percents)
-	mean, median := 0.0, 0
-	for _, p := range percents {
-		mean += float64(p)
-	}
-	if len(percents) > 0 {
-		mean /= float64(len(percents))
-		median = percents[len(percents)/2]
 	}
 
 	var b strings.Builder
 	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n\n")
 
-	cards := []string{
-		card(fmt.Sprint(len(ds.Students)), "students", sBold),
-		card(fmt.Sprint(delivered), "submitted", sGood),
-		card(fmt.Sprint(len(ds.Students)-delivered), "no submission", sBad),
-		card(fmt.Sprintf("%.1f%%", mean), "mean", pctStyle(int(mean))),
-		card(fmt.Sprintf("%d%%", median), "median", pctStyle(median)),
-		card(fmt.Sprint(full), "at 100%", sGood),
-		card(fmt.Sprint(nSubs), "submissions ("+m.sd+")", sAccent),
-	}
-	// Wrap cards to the available width.
-	var row []string
-	for _, c := range cards {
-		if lipgloss.Width(lipgloss.JoinHorizontal(lipgloss.Top, append(row, c)...)) > w && len(row) > 0 {
-			b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n")
-			row = nil
+	// writeCards wraps cards to the available width.
+	writeCards := func(cards []string) {
+		var row []string
+		for _, c := range cards {
+			if lipgloss.Width(lipgloss.JoinHorizontal(lipgloss.Top, append(row, c)...)) > w && len(row) > 0 {
+				b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n")
+				row = nil
+			}
+			row = append(row, c)
 		}
-		row = append(row, c)
+		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n")
 	}
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n\n")
+	writeCards([]string{
+		card(fmt.Sprint(cs.n), "students", sBold),
+		card(fmt.Sprint(cs.delivered), "submitted", sGood),
+		card(fmt.Sprint(cs.missing), "no submission", sBad),
+		card(fmt.Sprintf("%.1f%%", cs.mean), "mean", pctStyle(int(cs.mean))),
+		card(fmt.Sprintf("%.1f%%", cs.median), "median", pctStyle(int(cs.median))),
+		card(fmt.Sprint(cs.full), "at 100%", sGood),
+		card(fmt.Sprint(nSubs), "submissions ("+m.sd+")", sAccent),
+	})
+	b.WriteString("\n")
 
 	// Grade histogram.
 	buckets := make([]int, 11)
@@ -142,15 +123,23 @@ func (v *overviewView) View(m *Model, w, h int) string {
 	// Suspicion summary.
 	b.WriteString(sSectionHdr.Render("Possible plagiarism") + "\n")
 	var byLevel [3]int
+	g := m.group()
+	inGroup := 0
 	for _, p := range m.pairsTraces() {
 		byLevel[p.Level()]++
+		if pairInvolves(p, g) {
+			inGroup++
+		}
 	}
-	b.WriteString(fmt.Sprintf("  %s high · %s medium · %s low pairs with similar traces\n",
+	line := fmt.Sprintf("  %s high · %s medium · %s low pairs with similar traces",
 		sBad.Bold(true).Render(fmt.Sprint(byLevel[analysis.High])), sWarn.Render(fmt.Sprint(byLevel[analysis.Medium])),
-		sDim.Render(fmt.Sprint(byLevel[analysis.Low]))))
-	b.WriteString(sDim.Render("  see the Traces tab: each pair says why it stands out") + "\n")
-	if errors > 0 {
-		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), errors))
+		sDim.Render(fmt.Sprint(byLevel[analysis.Low])))
+	if len(g) > 0 {
+		line += fmt.Sprintf(" (%s involve your group)", sAccent.Render(fmt.Sprint(inGroup)))
+	}
+	b.WriteString(line + "\n" + sDim.Render("  see the Traces tab: each pair says why it stands out") + "\n")
+	if cs.errors > 0 {
+		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), cs.errors))
 	}
 	return b.String()
 }

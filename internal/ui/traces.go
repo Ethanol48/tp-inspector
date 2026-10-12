@@ -12,14 +12,16 @@ import (
 )
 
 type tracesView struct {
-	t     Table
-	gen   int
-	pairs map[string]analysis.TracePair
+	t         Table
+	gen       int
+	onlyGroup bool // show only pairs involving the group (when there is one)
+	filtered  bool // onlyGroup applied at the last rebuild
+	pairs     map[string]analysis.TracePair
 }
 
 func (v *tracesView) Title() string { return "Traces" }
 func (v *tracesView) Keys() []string {
-	return []string{keyHint("enter", "compare")}
+	return []string{keyHint("enter", "compare"), keyHint("f", "group / everyone")}
 }
 
 func (v *tracesView) rebuild(m *Model) {
@@ -32,9 +34,20 @@ func (v *tracesView) rebuild(m *Model) {
 		{Title: "Score", Width: 5, Right: true},
 		{Title: "Grades", Width: 9, Right: true},
 	}
+	g := m.group()
+	v.filtered = v.onlyGroup && len(g) > 0
+	name := func(l string) string {
+		if g[l] {
+			return sAccent.Render("◦ ") + l
+		}
+		return "  " + l
+	}
 	v.pairs = map[string]analysis.TracePair{}
 	var rows []Row
 	for _, p := range m.pairsTraces() {
+		if v.filtered && !pairInvolves(p, g) {
+			continue
+		}
 		pa, pb := -1, -1
 		if st := m.student(p.A); st != nil {
 			pa = st.Percent(m.sd)
@@ -45,11 +58,14 @@ func (v *tracesView) rebuild(m *Model) {
 		key := p.A + "\x00" + p.B
 		v.pairs[key] = p
 		rows = append(rows, Row{Key: key, Cells: []string{
-			sDim.Render(fmt.Sprint(len(rows) + 1)), levelCell(p.Score), p.A, p.B, p.Reason(),
+			sDim.Render(fmt.Sprint(len(rows) + 1)), levelCell(p.Score), name(p.A), name(p.B), p.Reason(),
 			sDim.Render(scorePct(p.Score)), pctCell(pa) + sDim.Render("/") + pctCell(pb),
 		}})
 	}
 	v.t.Empty = "No pair with similar failures (needs ≥2 shared uncommon failures)."
+	if v.filtered {
+		v.t.Empty = "No suspicious pair involves your group (f to show everyone)."
+	}
 	v.t.SetRows(rows)
 }
 
@@ -57,7 +73,11 @@ func (v *tracesView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	if v.t.HandleKey(k.String()) {
 		return nil
 	}
-	if k.String() == "enter" {
+	switch k.String() {
+	case "f":
+		v.onlyGroup = !v.onlyGroup
+		v.gen = -1
+	case "enter":
 		if sel := v.t.Selected(); sel != nil {
 			p := v.pairs[sel.Key]
 			m.push(newCompareView(p.A, p.B))
@@ -72,6 +92,11 @@ func (v *tracesView) View(m *Model, w, h int) string {
 		v.gen = m.gen
 	}
 	head := sDim.Render("Pairs failing the same tests that few others fail, often with the same output. Hints only: read the code before concluding.")
+	if v.filtered {
+		head += "\n" + sAccent.Render(fmt.Sprintf("Only pairs with a member of your group (◦): %d", len(v.t.Rows))) + sDim.Render(" · f to show everyone")
+	} else if m.hasGroup() {
+		head += "\n" + sDim.Render("Everyone · f to show only pairs with your group (◦)")
+	}
 	head += "\n\n"
 	why := ""
 	if sel := v.t.Selected(); sel != nil {

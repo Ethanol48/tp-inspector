@@ -119,7 +119,7 @@ func New(slug tp.Slug, loader *data.Loader, list []string) *Model {
 	}
 	rv := newRankingView()
 	rv.onlyList = len(list) > 0
-	m.tabs = []view{&overviewView{}, rv, &testsView{}, &tracesView{}, &reposView{}}
+	m.tabs = []view{&overviewView{}, &groupView{gen: -1}, rv, &testsView{}, &tracesView{onlyGroup: true}, &reposView{}}
 	return m
 }
 
@@ -329,7 +329,7 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 		case "shift+tab", "left", "h":
 			m.active = (m.active + len(m.tabs) - 1) % len(m.tabs)
 			return nil
-		case "1", "2", "3", "4", "5":
+		case "1", "2", "3", "4", "5", "6":
 			if i := int(key[0] - '1'); i < len(m.tabs) {
 				m.active = i
 			}
