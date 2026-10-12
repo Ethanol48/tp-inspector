@@ -63,3 +63,20 @@ func TestCleanup(t *testing.T) {
 		t.Fatal("root should be gone")
 	}
 }
+
+func TestPickGradedSD(t *testing.T) {
+	for _, c := range []struct {
+		names []string
+		want  string
+	}{
+		{[]string{"archi", "submit"}, "submit"},         // TP: submit-* runs the testsuite
+		{[]string{"submission"}, "submission"},          // exam: submission-*
+		{[]string{"archi", "submission"}, "submission"}, // archi-* only checks the layout
+		{[]string{"acdc-archi", "acdc-submit"}, "acdc-submit"},
+		{[]string{"archi"}, ""},
+	} {
+		if got := PickGradedSD(c.names); got != c.want {
+			t.Errorf("PickGradedSD(%v) = %q, want %q", c.names, got, c.want)
+		}
+	}
+}

@@ -65,9 +65,10 @@ func (s *Student) Percent(sd string) int {
 type Dataset struct {
 	Slug      tp.Slug
 	Activity  forge.Activity
-	SDs       []string          // student submission definition short names, "submit" first
-	SDURIs    map[string]string // short name -> full URI
-	Students  []*Student        // sorted by login
+	SDs       []string                          // student submission definition short names, the graded one first
+	SDURIs    map[string]string                 // short name -> full URI
+	Windows   map[string]forge.SubmissionWindow // short name -> opening/closing times, when known
+	Students  []*Student                        // sorted by login
 	ByLogin   map[string]*Student
 	FetchedAt time.Time
 	Warnings  []string
@@ -90,7 +91,7 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 	if progress == nil {
 		progress = func(string, int, int) {}
 	}
-	ds := &Dataset{Slug: slug, SDURIs: map[string]string{}, ByLogin: map[string]*Student{}, FetchedAt: time.Now()}
+	ds := &Dataset{Slug: slug, SDURIs: map[string]string{}, Windows: map[string]forge.SubmissionWindow{}, ByLogin: map[string]*Student{}, FetchedAt: time.Now()}
 
 	progress("Looking up the activity", 0, 0)
 	act, err := l.resolveActivity(slug)
@@ -116,10 +117,14 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 		ds.SDs = append(ds.SDs, name)
 		ds.SDURIs[name] = u
 	}
-	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == "submit" && ds.SDs[j] != "submit" })
+	graded := PickGradedSD(ds.SDs)
+	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == graded && ds.SDs[j] != graded })
 	if len(ds.SDs) == 0 {
 		return nil, fmt.Errorf("%s has no student submission definitions", act.URI)
 	}
+
+	progress("Submission windows", 0, 0)
+	l.windows(ds, actCache)
 
 	progress("Groups", 0, 0)
 	var groups []forge.Group
@@ -203,6 +208,61 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 
 	sort.Slice(ds.Students, func(i, j int) bool { return ds.Students[i].Login < ds.Students[j].Login })
 	return ds, nil
+}
+
+// windows fills ds.Windows from the assignments owning the submission
+// definitions (an SD URI is "<assignment URI>/<sd>"). Failures only warn: the
+// windows refine the suspicion, they are not required.
+func (l *Loader) windows(ds *Dataset, c *Cache) {
+	seen := map[string]bool{}
+	for _, sd := range ds.SDs {
+		uri := path.Dir(ds.SDURIs[sd])
+		if seen[uri] {
+			continue
+		}
+		seen[uri] = true
+		name := "assignment-" + path.Base(uri) + ".json"
+		var a forge.Assignment
+		if _, ok := c.ReadJSON(name, &a); !ok {
+			var err error
+			if a, err = l.Client.Assignment(uri); err != nil {
+				ds.Warnings = append(ds.Warnings, fmt.Sprintf("submission window of %s: %v", path.Base(uri), err))
+				continue
+			}
+			_ = c.WriteJSON(name, a)
+		}
+		for _, w := range a.Submissions {
+			if !w.Valid() {
+				continue
+			}
+			for _, sd := range ds.SDs {
+				if ds.SDURIs[sd] == w.URI || (path.Dir(ds.SDURIs[sd]) == uri && sd == w.Slug) {
+					ds.Windows[sd] = w
+				}
+			}
+		}
+	}
+}
+
+// GradedSD is the definition that runs the testsuite and holds the grade:
+// "submit" for TPs, "submission" for exams (see PickGradedSD), or the first
+// definition when none qualifies.
+func (ds *Dataset) GradedSD() string {
+	if sd := PickGradedSD(ds.SDs); sd != "" {
+		return sd
+	}
+	if len(ds.SDs) > 0 {
+		return ds.SDs[0]
+	}
+	return ""
+}
+
+// Window returns the submission window of a definition, or nil when unknown.
+func (ds *Dataset) Window(sd string) *forge.SubmissionWindow {
+	if w, ok := ds.Windows[sd]; ok {
+		return &w
+	}
+	return nil
 }
 
 // student returns the student for a group slug, creating it if the group

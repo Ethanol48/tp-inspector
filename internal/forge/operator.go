@@ -90,6 +90,13 @@ func (c *Client) SubmissionDefinitions(activityURI string) ([]string, error) {
 	return out, c.getJSON("/api/activities/activity/"+esc(activityURI)+"/my-submissions-definitions", nil, &out)
 }
 
+// Assignment returns an assignment with the opening and closing times of its
+// submission definitions.
+func (c *Client) Assignment(assignmentURI string) (Assignment, error) {
+	var out Assignment
+	return out, c.getJSON("/api/activities/assignment/"+esc(assignmentURI), nil, &out)
+}
+
 func (c *Client) PickedLast(sdURI string) ([]PickedSubmission, error) {
 	var out []PickedSubmission
 	return out, c.getJSON("/api/traces/"+esc(sdURI)+"/picked/last", nil, &out)

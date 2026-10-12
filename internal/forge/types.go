@@ -70,3 +70,26 @@ type Group struct {
 	Members      []string `json:"members"`
 	GitRemoteURL string   `json:"gitRemoteUrl"`
 }
+
+// Assignment is an assignment with the windows of its submission definitions.
+type Assignment struct {
+	URI         string             `json:"uri"`
+	Slug        string             `json:"slug"`
+	Submissions []SubmissionWindow `json:"submissions"`
+}
+
+// SubmissionWindow is when a submission definition accepts submissions.
+type SubmissionWindow struct {
+	URI          string    `json:"uri"`
+	Slug         string    `json:"slug"`
+	PublishingAt time.Time `json:"publishingAt"`
+	OpeningAt    time.Time `json:"openingAt"`
+	ClosingAt    time.Time `json:"closingAt"`
+	Limit        int       `json:"limit"`
+	LimitType    string    `json:"limitType"`
+}
+
+// Valid reports whether the window has a usable opening and closing time.
+func (w SubmissionWindow) Valid() bool {
+	return !w.OpeningAt.IsZero() && w.ClosingAt.After(w.OpeningAt)
+}
