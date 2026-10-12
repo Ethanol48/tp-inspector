@@ -48,7 +48,7 @@ Pass the slug of an assignment:
 ```
 
 `prog-205-p-01-2030` = subject `prog`, year `2`, bimester `05`, kind `p` (TP;
-`e` exam, `r` retake), number `01`, class of `2030`.
+`e` exam, `r` retake), number `01`, promo `2030`.
 
 To focus on some students only (e.g. your group), pass a text file of logins
 with `--logins` (before the slug):
@@ -65,11 +65,11 @@ other.student@epita.fr
 
 The Overview (statistics: mean, median, histogram…) and the Ranking then show
 **only those students** (plus any you mark with `space`); press `f` in either
-tab to switch between them and the whole class. Tests and Traces still use the
-whole class, so similarities with students outside your list are still
+tab to switch between them and the whole promo. Tests and Traces still use the
+whole promo, so similarities with students outside your list are still
 detected.
 
-The first load downloads the submissions and traces of the class (cached in
+The first load downloads the submissions and traces of the promo (cached in
 `~/.cache/tpi`, so later runs are instant). Then:
 
 | Key | Action |

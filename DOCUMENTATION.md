@@ -120,7 +120,7 @@ tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore p
 
 | Tab | Content |
 |-----|---------|
-| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, summary of suspicious pairs. With `--logins`, it starts on the selection (list + marked students), with the class mean and median next to theirs; `f` switches to the whole class. |
+| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, summary of suspicious pairs. With `--logins`, it starts on the selection (list + marked students), with the promo mean and median next to theirs; `f` switches to the whole promo. |
 | **Ranking** | Every student with grade, last tag, submission time, number of submissions, status and best suspicion scores. Sortable and filterable. |
 | **Tests** | Pass rate per test, without the per-exercise global checks. `enter` groups the failing students by **exact failure output**: a rare wrong output shared by 2–5 students stands out. |
 | **Traces** | Pairs of students with similar failure patterns (see scoring). |
@@ -145,16 +145,16 @@ many students fail it, or every failed test under the selected group.
 
 `H` on a student (in Ranking or in their detail view) opens their
 **history**: the grade of every activity (TPs, exams and retakes, `_d`
-variants included) of their class and of the previous and next ones, e.g.
+variants included) of their promo and of the previous and next ones, e.g.
 every `*-2029`, `*-2030` and `*-2031` activity for a TP of 2030. The
-neighbouring classes are what reveal a **repeated year**: a student who
-repeated year 1 did it once with the class of 2029 and again with the class
-of 2030.
+neighbouring promos are what reveal a **repeated year**: a student who
+repeated year 1 did it once with the 2029 promo and again with the 2030
+promo.
 
 The view has one tab per **academic year + promo** in which the student
 submitted something (e.g. `Y1 · 2029 2024–25`, `Y1 · 2030 2025–26`,
 `Y2 · 2030 2026–27`), plus a **Summary** tab: average cards over every year
-and one row per year + class with the TP / exam / retake / overall averages
+and one row per year + promo with the TP / exam / retake / overall averages
 and a warning when the same year was done several times. A year tab shows the
 cards and the activities of that year only.
 
@@ -187,7 +187,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | `e` | Export suspicious pairs of the current definition to `tpi-<slug>-<def>-suspects.csv` in the current directory |
 | `?` | Open / close the help |
 | **Overview** | |
-| `f` | Statistics of the `--logins` list + marked students / of the whole class |
+| `f` | Statistics of the `--logins` list + marked students / of the whole promo |
 | **Ranking** | |
 | `s` / `r` | Cycle sort (grade, submission time, login, submissions, suspicion) / reverse |
 | `/` | Filter by login |
@@ -231,7 +231,7 @@ For each student, only *informative* failures are kept:
   submitted) are dropped;
 - exercises failed at ≥ 90 % are dropped (not attempted);
 - per-exercise failure patterns (exact set of failed tests and outputs)
-  shared by more than max(4, 1 % of the class) students are dropped: those
+  shared by more than max(4, 1 % of the promo) students are dropped: those
   are common mistakes such as an empty function returning `NULL`.
 
 

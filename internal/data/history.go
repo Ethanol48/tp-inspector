@@ -13,7 +13,7 @@ import (
 	"tp-inspector/internal/tp"
 )
 
-// HistoryEntry is one student's result in one activity of their class.
+// HistoryEntry is one student's result in one activity of their promo.
 type HistoryEntry struct {
 	Activity forge.Activity    `json:"activity"`
 	SD       string            `json:"sd"`   // graded submission definition short name
@@ -36,23 +36,23 @@ func (e HistoryEntry) Percent() int {
 	return e.Last.Percent()
 }
 
-// Section returns the academic year (1, 2…) and class of the activity, which
+// Section returns the academic year (1, 2…) and promo of the activity, which
 // tell apart a year that was done twice; ok is false for unknown slugs.
 func (e HistoryEntry) Section() (year, promo int, ok bool) {
 	s, ok := e.Slug()
 	return s.Year, s.Promo, ok
 }
 
-// HistoryPromos are the classes whose activities are fetched for a student
-// of the given class: the previous one (a year they repeated) and the next
+// HistoryPromos are the promos whose activities are fetched for a student
+// of the given promo: the previous one (a year they repeated) and the next
 // one (a year they repeat after this assignment).
 func HistoryPromos(promo int) []int { return []int{promo - 1, promo, promo + 1} }
 
-// History is the result of a student in every activity of some classes.
+// History is the result of a student in every activity of some promos.
 type History struct {
 	Login     string         `json:"login"`
-	Promo     int            `json:"promo"`  // class of the assignment it was opened from
-	Promos    []int          `json:"promos"` // classes whose activities were fetched
+	Promo     int            `json:"promo"`  // promo of the assignment it was opened from
+	Promos    []int          `json:"promos"` // promos whose activities were fetched
 	Entries   []HistoryEntry `json:"entries"`
 	FetchedAt time.Time      `json:"fetchedAt"`
 }
@@ -65,7 +65,7 @@ func historyName(login string, promo int) string {
 }
 
 // CachedHistory returns the history saved by a previous download, if it
-// covers the classes HistoryPromos(promo).
+// covers the promos HistoryPromos(promo).
 func (l *Loader) CachedHistory(login string, promo int) (*History, bool) {
 	var h History
 	c := &Cache{Root: l.Cache.Root}
@@ -76,9 +76,9 @@ func (l *Loader) CachedHistory(login string, promo int) (*History, bool) {
 	return &h, true
 }
 
-// ClassActivities filters the activities of some classes (promos) with a
+// PromoActivities filters the activities of some promos with a
 // parsable slug.
-func ClassActivities(acts []forge.Activity, promos []int) []forge.Activity {
+func PromoActivities(acts []forge.Activity, promos []int) []forge.Activity {
 	var out []forge.Activity
 	for _, a := range acts {
 		s, err := tp.Parse(strings.TrimSuffix(a.Slug, "_d"))
@@ -102,7 +102,7 @@ func (l *Loader) LoadHistory(login string, promo int, progress Progress) (*Histo
 	}
 	_ = l.Cache.WriteJSON("activities.json", all)
 	promos := HistoryPromos(promo)
-	acts := ClassActivities(all, promos)
+	acts := PromoActivities(all, promos)
 	h := &History{Login: login, Promo: promo, Promos: promos, FetchedAt: time.Now(), Entries: make([]HistoryEntry, len(acts))}
 	var (
 		wg   sync.WaitGroup

@@ -52,6 +52,6 @@ func (s Slug) KindName() string {
 
 // Describe returns a one-line human description.
 func (s Slug) Describe() string {
-	return fmt.Sprintf("%s · %s %d · year %d · bimester %d · class of %d",
+	return fmt.Sprintf("%s · %s %d · year %d · bimester %d · promo %d",
 		strings.ToUpper(s.Subject), s.KindName(), s.Number, s.Year, s.Bimester, s.Promo)
 }
