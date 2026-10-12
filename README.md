@@ -94,28 +94,7 @@ Scores are **hints**, not proof: always read the code before concluding.
 
 ## Contribute
 
-Contributions are welcome, from anyone: no need to ask first. Bug fixes, new
-views, better docs… just open a merge request (GitLab's pull request).
-
-1. Fork the repo and create a branch: `git switch -c my-feature`.
-2. Make your change. Code, comments and UI strings are in English.
-3. Check that it builds and the tests pass:
-
-   ```sh
-   gofmt -l .        # should print nothing
-   go vet ./...
-   go test ./...
-   ```
-
-4. Push your branch and open a merge request to `master`. Say what it changes
-   and, for the TUI, how you tested it (which assignment, which view).
-
-For a bigger change or an idea you are not sure about, open an issue first to
-discuss it.
-
-**Never commit student data or credentials**: login lists, cached traces,
-cloned repos, exported CSVs or tokens. `.gitignore` covers the usual ones, but
-check `git status` before committing.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains every step.
 
 ## License
 
