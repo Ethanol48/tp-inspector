@@ -37,9 +37,9 @@ func (v *reposView) rebuild(m *Model) {
 	var rows []Row
 	for _, l := range m.repoLogins() {
 		st := m.student(l)
-		tag := sDim.Render("no submit")
+		tag := sDim.Render("no submission")
 		if st != nil {
-			if last := st.Last("submit"); last != nil {
+			if last := st.Last(m.ds.Graded); last != nil {
 				tag = last.Ref
 			}
 		}
@@ -54,7 +54,7 @@ func (v *reposView) rebuild(m *Model) {
 			} else {
 				status, commit, path = sGood.Render("cloned"), r.Commit, sDim.Render(r.Dir)
 				if r.Ref != tag {
-					status = sWarn.Render("outdated") // a newer submit was graded since
+					status = sWarn.Render("outdated") // a newer submission was graded since
 				}
 			}
 		}
@@ -120,7 +120,7 @@ func (v *reposView) View(m *Model, w, h int) string {
 		h -= 2
 	}
 	head := []string{
-		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded submit into %s", len(m.cloneSelection()), m.repoRoot())),
+		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded submission into %s", len(m.cloneSelection()), m.repoRoot())),
 		sDim.Render("Only marked students are cloned (space in Ranking); repos already on disk are listed too so you can remove them."),
 	}
 	out := strings.Join(head, "\n") + "\n\n" + v.t.View(w, h-3)

@@ -156,23 +156,31 @@ func (l *Loader) historyEntry(a forge.Activity, login string) HistoryEntry {
 	return e
 }
 
-// gradedSD picks the definition that holds the grade: "submit" for TPs,
-// "submission" for exams, otherwise anything but archi/dummy/assistant ones.
+// gradedSD picks the definition that holds the grade among those of subs.
 func gradedSD(subs []forge.Submission) string {
-	names := map[string]bool{}
+	var names []string
 	for _, s := range subs {
-		if strings.Contains(s.SubmissionDefinitionURI, "/Assistants-") {
-			continue
+		if !strings.Contains(s.SubmissionDefinitionURI, "/Assistants-") {
+			names = append(names, SDName(s.SubmissionDefinitionURI))
 		}
-		names[SDName(s.SubmissionDefinitionURI)] = true
+	}
+	return GradedSDName(names)
+}
+
+// GradedSDName picks the definition that holds the grade: "submit" for TPs,
+// "submission" for exams, otherwise anything but archi/dummy ones.
+func GradedSDName(names []string) string {
+	set := map[string]bool{}
+	for _, n := range names {
+		set[n] = true
 	}
 	for _, pref := range []string{"submit", "submission"} {
-		if names[pref] {
+		if set[pref] {
 			return pref
 		}
 	}
 	var rest []string
-	for n := range names {
+	for n := range set {
 		if !strings.Contains(n, "archi") && !strings.Contains(n, "dummy") {
 			rest = append(rest, n)
 		}
