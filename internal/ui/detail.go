@@ -53,7 +53,7 @@ func (v *detailView) Keys() []string {
 	return []string{keyHint("enter", "compare"), keyHint("tab", "section")}
 }
 
-// submitDF returns, for the graded submit traces of the class, how many
+// submitDF returns, for the graded traces of the promo, how many
 // students fail each test and how many traces there are.
 func submitDF(m *Model) (map[string]int, int) {
 	df := map[string]int{}

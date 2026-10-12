@@ -499,7 +499,7 @@ func (m *Model) repoRoot() string {
 }
 
 // cloneSelection returns the students marked by hand in Ranking: the only
-// repos ever cloned (never the whole class, nor the whole --logins list).
+// repos ever cloned (never the whole promo, nor the whole --logins list).
 func (m *Model) cloneSelection() []string {
 	var out []string
 	for l, ok := range m.marked {
