@@ -11,6 +11,7 @@ import (
 	"tp-inspector/internal/data"
 	"tp-inspector/internal/forge"
 	"tp-inspector/internal/tp"
+	"tp-inspector/internal/trace"
 )
 
 const copied = `
@@ -112,6 +113,33 @@ func TestCombine(t *testing.T) {
 	}
 	if got := combine(0.4, 0, 0); got != 0.4 {
 		t.Errorf("a single signal must be kept: %v", got)
+	}
+}
+
+// An exam grades submission-* tags: the student page must show and open
+// their trace like a TP's submit-* ones.
+func TestExamTrace(t *testing.T) {
+	b, err := os.ReadFile("../trace/testdata/sample.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, err := trace.Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := 99
+	sub := forge.Submission{ID: "s1", Ref: "submission-abc1234", SubmissionDefinitionURI: "a/exam/submission", Status: "SUCCEEDED",
+		ReceivedAt: time.Now(), CurrentJob: &forge.Job{ID: "j1", SuccessPercent: &p}}
+	st := &data.Student{Login: "eve", Subs: []forge.Submission{sub},
+		Picked: map[string]*forge.PickedSubmission{"submission": {SubmissionID: "s1", CurrentJobID: "j1"}},
+		Traces: map[string]*trace.Trace{"submission": tr}}
+	ds := &data.Dataset{Activity: forge.Activity{Slug: "exam"}, SDs: []string{"submission"},
+		SDURIs: map[string]string{"submission": "a/exam/submission"}, Students: []*data.Student{st}, ByLogin: map[string]*data.Student{}}
+	m := New(tp.Slug{Raw: "exam"}, &data.Loader{Cache: &data.Cache{Root: t.TempDir()}}, nil)
+	m.ds, m.sd, m.w, m.h, m.gen = ds, "submission", 160, 50, 1
+	m.push(newDetailView("eve"))
+	if out := m.View(); strings.Contains(out, "No graded") || !strings.Contains(out, "submission-abc1234") {
+		t.Errorf("exam trace not shown:\n%s", out)
 	}
 }
 

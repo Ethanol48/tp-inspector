@@ -12,7 +12,7 @@ import (
 
 // reposView clones the repos of the students marked in Ranking (or of the
 // class: --logins, else the whole promotion), at the tag of their graded
-// submit submission, and lists where they are. Every repo on disk is then
+// submission (submit-* for TPs, submission-* for exams), and lists where they are. Every repo on disk is then
 // analysed for shared and generated code.
 type reposView struct {
 	t          Table
@@ -56,7 +56,7 @@ func (v *reposView) rebuild(m *Model) {
 	var rows []Row
 	for _, l := range m.repoLogins() {
 		st := m.student(l)
-		tag := sDim.Render("no submit")
+		tag := sDim.Render("no " + m.gradedSD())
 		if st != nil {
 			if last := st.Last(m.gradedSD()); last != nil {
 				tag = last.Ref
@@ -121,7 +121,7 @@ func (v *reposView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		if v.confirmAll = len(m.classToClone()); v.confirmAll == 0 {
-			return m.setStatus("Nobody has a graded submit to clone")
+			return m.setStatus("Nobody has a graded " + m.gradedSD() + " to clone")
 		}
 		return nil
 	case "r":
@@ -171,7 +171,7 @@ func (v *reposView) View(m *Model, w, h int) string {
 	}
 	v.locked, v.listed = m.sshLocked, len(m.list) > 0
 	head := []string{
-		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded submit into %s", len(m.cloneSelection()), m.repoRoot())),
+		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded %s into %s", len(m.cloneSelection()), m.gradedSD(), m.repoRoot())),
 		sDim.Render("A clones "+m.classLabel()+": shared code is only found between repos on disk. ") + analysed,
 	}
 	if m.cloneErr != "" {

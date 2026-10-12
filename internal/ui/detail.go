@@ -17,17 +17,13 @@ import (
 
 var detailTabs = []string{"Trace", "Tags", "Suspects"}
 
-// traceSD is the submission definition whose traces are browsed: archi
-// traces only check the repository layout.
-const traceSD = "submit"
-
-// detailView is a student: the graded submit trace, every tag they pushed,
-// then the signals about them.
+// detailView is a student: the graded trace (submit for TPs, submission for
+// exams), every tag they pushed, then the signals about them.
 type detailView struct {
 	login  string
 	sub    int
 	gen    int
-	tree   *traceTree // graded submit trace, nil if none
+	tree   *traceTree // graded trace (submit / submission), nil if none
 	treeOf string     // job id the tree was built for
 	tTags  Table
 	tSus   Table
@@ -51,7 +47,7 @@ func (v *detailView) Keys() []string {
 		}
 		return k
 	case 1:
-		return []string{keyHint("enter", "trace of a submit tag"), v.markHint(), keyHint("tab", "section"), keyHint("H", "history")}
+		return []string{keyHint("enter", "trace of a submit / submission tag"), v.markHint(), keyHint("tab", "section"), keyHint("H", "history")}
 	}
 	var k []string
 	if v.selOther != "" {
@@ -67,14 +63,14 @@ func (v *detailView) markHint() string {
 	return keyHint("space", "mark (to clone / compare)")
 }
 
-// submitDF returns, for the graded submit traces of the class, how many
+// submitDF returns, for the graded traces of the class, how many
 // students fail each test and how many traces there are.
 func submitDF(m *Model) (map[string]int, int) {
 	df := map[string]int{}
-	for _, s := range collectTestsFor(m, traceSD) {
+	for _, s := range collectTestsFor(m, m.gradedSD()) {
 		df[s.id] = s.fail
 	}
-	return df, len(m.tracesFor(traceSD))
+	return df, len(m.tracesFor(m.gradedSD()))
 }
 
 // isGraded reports whether sub is the submission that counts for its definition.
@@ -89,10 +85,10 @@ func (v *detailView) rebuild(m *Model) {
 		return
 	}
 	// Keep the tree (and its folding) unless the graded job changed.
-	if p := st.Picked[traceSD]; p != nil && st.Traces[traceSD] != nil {
+	if p := st.Picked[m.gradedSD()]; p != nil && st.Traces[m.gradedSD()] != nil {
 		if v.treeOf != p.CurrentJobID {
 			df, pop := submitDF(m)
-			v.tree, v.treeOf = newTraceTree(st.Traces[traceSD], df, pop), p.CurrentJobID
+			v.tree, v.treeOf = newTraceTree(st.Traces[m.gradedSD()], df, pop), p.CurrentJobID
 		}
 	} else {
 		v.tree, v.treeOf = nil, ""
@@ -120,7 +116,7 @@ func (v *detailView) rebuild(m *Model) {
 		p := s.Percent()
 		cells := []string{graded, s.Ref, sDim.Render(shortSD(s.SubmissionDefinitionURI)),
 			fmtTime(s.ReceivedAt), state, pctCell(p), pctBar(p, 12), author, sDim.Render(s.IP)}
-		if data.SDName(s.SubmissionDefinitionURI) != traceSD {
+		if data.SDName(s.SubmissionDefinitionURI) != m.gradedSD() {
 			// archi tags only check the repository layout: listed, not browsable.
 			for i := range cells {
 				cells[i] = sDim.Render(ansiStrip(cells[i]))
@@ -220,8 +216,8 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		if sel == nil {
 			return nil
 		}
-		if data.SDName(v.subs[sel.Key].SubmissionDefinitionURI) != traceSD {
-			return m.setStatus("Traces can only be opened for submit tags")
+		if data.SDName(v.subs[sel.Key].SubmissionDefinitionURI) != m.gradedSD() {
+			return m.setStatus("Traces can only be opened for " + m.gradedSD() + " tags")
 		}
 		tv := newTagTraceView(v, sel.Key)
 		m.push(tv)
@@ -285,12 +281,12 @@ func (v *detailView) View(m *Model, w, h int) string {
 	var body string
 	switch v.sub {
 	case 0:
-		last := st.Last(traceSD)
+		last := st.Last(m.gradedSD())
 		switch {
 		case v.tree == nil:
-			body = "\n  " + sDim.Render("No graded submit trace for this student.")
+			body = "\n  " + sDim.Render("No graded "+m.gradedSD()+" trace for this student.")
 		default:
-			label := traceSD
+			label := m.gradedSD()
 			if last != nil {
 				label = fmt.Sprintf("%s · %s · graded", last.Ref, fmtTime(last.ReceivedAt))
 			}
@@ -301,7 +297,7 @@ func (v *detailView) View(m *Model, w, h int) string {
 			body = sDim.Render(label) + "\n" + v.tree.View(pct, w, bodyH-1)
 		}
 	case 1:
-		body = v.tTags.View(w, bodyH-1) + "\n" + sDim.Render("  ★ graded submission · enter opens the trace of a submit tag (archi tags are not browsable)")
+		body = v.tTags.View(w, bodyH-1) + "\n" + sDim.Render("  ★ graded submission · enter opens the trace of a "+m.gradedSD()+" tag (archi tags only check the repository layout: not browsable)")
 	default:
 		var expl []string
 		if sel := v.tSus.Selected(); sel != nil {
@@ -348,7 +344,7 @@ func (v *tagTraceView) submission() forge.Submission { return v.parent.subs[v.su
 func (v *tagTraceView) Title() string { return v.submission().Ref }
 
 func (v *tagTraceView) Keys() []string {
-	k := []string{keyHint("[/]", "older/newer submit")}
+	k := []string{keyHint("[/]", "older/newer graded tag")}
 	if v.tree != nil {
 		k = append(k, v.tree.keys()...)
 	}
@@ -357,7 +353,7 @@ func (v *tagTraceView) Keys() []string {
 
 func (v *tagTraceView) load(m *Model) tea.Cmd { return m.fetchJobTrace(v.submission()) }
 
-// step moves to the older (+1) or newer (-1) submit tag of the list.
+// step moves to the older (+1) or newer (-1) graded-definition tag of the list.
 // Only that one trace is fetched, and only if it is not cached.
 func (v *tagTraceView) step(m *Model, d int) tea.Cmd {
 	rows := v.parent.tTags.Rows
@@ -366,7 +362,7 @@ func (v *tagTraceView) step(m *Model, d int) tea.Cmd {
 			continue
 		}
 		for j := i + d; j >= 0 && j < len(rows); j += d {
-			if data.SDName(v.parent.subs[rows[j].Key].SubmissionDefinitionURI) == traceSD {
+			if data.SDName(v.parent.subs[rows[j].Key].SubmissionDefinitionURI) == m.gradedSD() {
 				v.subID = rows[j].Key
 				v.parent.tTags.cursor = j
 				v.tree, v.treeOf = nil, ""

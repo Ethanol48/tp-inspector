@@ -484,7 +484,7 @@ func (m *Model) View() string {
 // hints (help, back/quit) always stay.
 func (m *Model) footer(top view) string {
 	sep := sDim.Render(" · ")
-	optional := append(top.Keys(), keyHint("m", "submit/archi"), keyHint("e", "export"))
+	optional := append(top.Keys(), keyHint("m", "definition"), keyHint("e", "export"))
 	tail := []string{keyHint("?", "help")}
 	if len(m.stack) > 0 {
 		tail = append(tail, keyHint("esc", "back"))
