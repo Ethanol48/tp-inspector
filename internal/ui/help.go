@@ -26,6 +26,8 @@ func (v *helpView) View(m *Model, w, h int) string {
 		k("R", "reload from the API (ignores the cache)"),
 		k("e", "export suspicious pairs to CSV"),
 		k("?", "open / close this help"),
+		sec("Overview"),
+		k("f", "statistics of the --logins list + marked students / whole class"),
 		sec("Ranking"),
 		k("s / r", "change sort / reverse"),
 		k("/", "filter by login"),

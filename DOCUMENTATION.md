@@ -82,7 +82,7 @@ positional argument).
 |------|---------|-------------|
 | `--tp SLUG` | | Assignment slug, alternative to the positional argument or stdin. |
 | `--tenant SLUG` | looked up | Tenant of the activity (e.g. `epita-prepa-computer-science`). By default it is found in the list of activities you can access. |
-| `--logins FILE` | | Text file of logins: the Ranking tab shows only them (toggle with `f`). It does **not** select repos to clone. |
+| `--logins FILE` | | Text file of logins: the Overview and Ranking tabs show only them (toggle with `f` in each tab). It does **not** select repos to clone. |
 | `--refresh` | off | Ignore cached API responses (same as pressing `R`). |
 | `--cache DIR` | `~/.cache/tpi` | Cache directory. |
 
@@ -120,7 +120,7 @@ tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore p
 
 | Tab | Content |
 |-----|---------|
-| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, summary of suspicious pairs. |
+| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, summary of suspicious pairs. With `--logins`, it starts on the selection (list + marked students), with the class mean and median next to theirs; `f` switches to the whole class. |
 | **Ranking** | Every student with grade, last tag, submission time, number of submissions, status and best suspicion scores. Sortable and filterable. |
 | **Tests** | Pass rate per test, without the per-exercise global checks. `enter` groups the failing students by **exact failure output**: a rare wrong output shared by 2–5 students stands out. |
 | **Traces** | Pairs of students with similar failure patterns (see scoring). |
@@ -186,6 +186,8 @@ rest when the terminal is narrow; `?` always lists everything.
 | `R` | Reload from the API, ignoring the cache |
 | `e` | Export suspicious pairs of the current definition to `tpi-<slug>-<def>-suspects.csv` in the current directory |
 | `?` | Open / close the help |
+| **Overview** | |
+| `f` | Statistics of the `--logins` list + marked students / of the whole class |
 | **Ranking** | |
 | `s` / `r` | Cycle sort (grade, submission time, login, submissions, suspicion) / reverse |
 | `/` | Filter by login |

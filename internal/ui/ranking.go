@@ -120,7 +120,7 @@ func (v *rankingView) rebuild(m *Model) {
 		if q != "" && !strings.Contains(strings.ToLower(st.Login), q) {
 			continue
 		}
-		if v.onlyList && !m.list[st.Login] && !m.marked[st.Login] {
+		if v.onlyList && !m.inSelection(st.Login) {
 			continue
 		}
 		es = append(es, entry{st, st.Percent(m.sd), len(st.SubsFor(m.sd)), m.suspicionOf(st.Login)})

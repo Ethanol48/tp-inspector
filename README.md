@@ -63,10 +63,11 @@ firstname.lastname
 other.student@epita.fr
 ```
 
-The Ranking then shows **only those students** (plus any you mark with
-`space`); press `f` to switch between them and the whole class. The rest of
-the tool (statistics, Tests, Traces) still uses the whole class, so
-similarities with students outside your list are still detected.
+The Overview (statistics: mean, median, histogram…) and the Ranking then show
+**only those students** (plus any you mark with `space`); press `f` in either
+tab to switch between them and the whole class. Tests and Traces still use the
+whole class, so similarities with students outside your list are still
+detected.
 
 The first load downloads the submissions and traces of the class (cached in
 `~/.cache/tpi`, so later runs are instant). Then:
