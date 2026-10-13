@@ -33,7 +33,7 @@ func (v *reposView) Keys() []string {
 	}
 	what := "whole promotion"
 	if v.listed {
-		what = "--logins class"
+		what = "--logins group"
 	}
 	k := []string{keyHint("A", "clone/update "+what), keyHint("a", "clone/update marked")}
 	if v.locked {

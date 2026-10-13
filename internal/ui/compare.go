@@ -131,10 +131,10 @@ func (v *compareView) rebuild(m *Model) {
 
 func (v *compareView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	switch k.String() {
-	case "tab", "right", "l":
+	case "tab", "right":
 		v.sub = (v.sub + 1) % len(compareTabs)
 		return nil
-	case "shift+tab", "left", "h":
+	case "shift+tab", "left":
 		v.sub = (v.sub + len(compareTabs) - 1) % len(compareTabs)
 		return nil
 	case "a":

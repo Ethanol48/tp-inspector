@@ -50,7 +50,7 @@ Pass the slug of an assignment:
 ```
 
 `prog-205-p-01-2030` = subject `prog`, year `2`, bimester `05`, kind `p` (TP;
-`e` exam, `r` retake), number `01`, class of `2030`.
+`e` exam, `r` retake), number `01`, promo `2030`.
 
 To focus on some students only (your class/group), pass a text file of logins
 with `--logins` (before the slug):
@@ -67,14 +67,14 @@ other.student@epita.fr
 
 Those students (plus any you mark with `space`) form **your group**:
 
-- the **Group** tab compares them with the whole class: mean, median,
-  submitted / missing, average class percentile, the pass rate of each
+- the **Group** tab compares them with the whole promo: mean, median,
+  submitted / missing, average promo percentile, the pass rate of each
   exercise (worst gap first) and the members who need attention (no
-  submission, errored, bottom 25 % of the class, suspect);
-- the **Overview** (mean, median, histogram…) starts on them, with the class
-  mean and median next to theirs; `f` switches to the whole class;
-- Tests adds the group pass rate and the gap with the class (`s` sorts by gap);
-- Ranking and Code show only the group; `f` switches to the whole class.
+  submission, errored, bottom 25 % of the promo, suspect);
+- the **Overview** (mean, median, histogram…) starts on them, with the promo
+  mean and median next to theirs; `f` switches to the whole promo;
+- Tests adds the group pass rate and the gap with the promo (`s` sorts by gap);
+- Ranking and Code show only the group; `f` switches to the whole promo.
 
 Suspicion is shown as a level (**high** / **medium** / **low**) with a reason
 in words. It combines three signals, `1 − (1−risk)(1−code)(1−AI)`, so a
@@ -89,7 +89,7 @@ student with several signals ranks above one with a single strong signal:
   ignored, the subject's skeleton left out (C and Python). Names and
   parameters come from the subject and are the same for everyone, so only
   bodies are compared.
-- **AI**: a coding style far from the class (comment sentences, `@param`
+- **AI**: a coding style far from the rest of the promo (comment sentences, `@param`
   doc blocks, guard clauses, long names, constructs nobody else uses), the
   whole history in one commit, typographic characters, generated-looking
   commit messages, and above all commits that credit an AI tool
@@ -97,12 +97,12 @@ student with several signals ranks above one with a single strong signal:
   agents…), which put the score at 95 % or more.
 
 Code and AI need the repos on disk: press `A` in the **Repos** tab to clone
-your class, which is the `--logins` list plus marked students, or the whole
+your group, which is the `--logins` list plus marked students, or the whole
 promotion without a list (a copy is only found between two repos on disk),
 then the analysis runs by itself. Sort the Ranking by risk (`s`) to know whom
 to check first, then by suspicion once their repos are analysed.
 
-The first load downloads the submissions and traces of the class (cached in
+The first load downloads the submissions and traces of the promo (cached in
 `~/.cache/tpi`, so later runs are instant). Then:
 
 | Key                   | Action                                                                                                             |
@@ -110,7 +110,7 @@ The first load downloads the submissions and traces of the class (cached in
 | `←/→`, `tab`, `1`–`6` | Switch tab: Overview, Group, Ranking, Tests, Code, Repos                                                           |
 | `↑/↓`, `enter`, `esc` | Move, open, go back                                                                                                |
 | `enter` on a student  | Their trace as a tree, their tags, their risk / AI / code signals                                                  |
-| `A` in Repos          | Clone your `--logins` class (else the promotion) and analyse the code (`K` unlocks a passphrase-protected SSH key) |
+| `A` in Repos          | Clone your `--logins` group (else the promotion) and analyse the code (`K` unlocks a passphrase-protected SSH key) |
 | `H` on a student      | Their grades in every TP / exam, by academic year                                                                  |
 | `s` / `/`             | Sort / filter the Ranking                                                                                          |
 | `space`, then `c`     | Mark two students and compare them                                                                                 |

@@ -17,7 +17,7 @@ type overviewView struct {
 }
 
 func (v *overviewView) Title() string  { return "Overview" }
-func (v *overviewView) Keys() []string { return []string{keyHint("f", "selection / whole class")} }
+func (v *overviewView) Keys() []string { return []string{keyHint("f", "selection / whole promo")} }
 
 func (v *overviewView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	if k.String() == "f" {
@@ -50,8 +50,8 @@ func fmtPct(p float64) string {
 	return strings.TrimSuffix(fmt.Sprintf("%.1f", p), ".0") + "%"
 }
 
-// classPercents returns the sorted grades of every student who has one.
-func (m *Model) classPercents() []int {
+// promoPercents returns the sorted grades of every student who has one.
+func (m *Model) promoPercents() []int {
 	var ps []int
 	for _, st := range m.ds.Students {
 		if p := st.Percent(m.sd); p >= 0 {
@@ -116,24 +116,24 @@ func (v *overviewView) View(m *Model, w, h int) string {
 			fmtDuration(win.ClosingAt.Sub(win.OpeningAt)))))
 		b.WriteString("\n")
 	} else {
-		b.WriteString(sDim.Render("no submission window from the API for " + m.sd + ": timing uses the class's first and last submissions"))
+		b.WriteString(sDim.Render("no submission window from the API for " + m.sd + ": timing uses the promo's first and last submissions"))
 		b.WriteString("\n")
 	}
 	meanLabel, medianLabel := "mean", "median"
 	if v.onlyList {
 		b.WriteString(sAccent.Render(fmt.Sprintf("Selection only: %d students (--logins list + marked)", nStudents)))
-		b.WriteString(sDim.Render(" · f for the whole class"))
+		b.WriteString(sDim.Render(" · f for the whole promo"))
 		b.WriteString("\n\n")
 		if nStudents == 0 {
 			b.WriteString(sDim.Render("No selection: use --logins list.txt or mark students with space in Ranking."))
 			b.WriteString("\n")
 			return b.String()
 		}
-		cMean, cMedian := meanMedian(m.classPercents())
-		meanLabel = "mean (class " + fmtPct(cMean) + ")"
-		medianLabel = "median (class " + fmtPct(cMedian) + ")"
+		cMean, cMedian := meanMedian(m.promoPercents())
+		meanLabel = "mean (promo " + fmtPct(cMean) + ")"
+		medianLabel = "median (promo " + fmtPct(cMedian) + ")"
 	} else {
-		scope := "Whole class"
+		scope := "Whole promo"
 		if len(m.list) > 0 || countTrue(m.marked) > 0 {
 			scope += sDim.Render(" · f for the selection only")
 		}

@@ -398,10 +398,10 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 	}
 	if len(m.stack) == 0 {
 		switch key {
-		case "tab", "right", "l":
+		case "tab", "right":
 			m.active = (m.active + 1) % len(m.tabs)
 			return nil
-		case "shift+tab", "left", "h":
+		case "shift+tab", "left":
 			m.active = (m.active + len(m.tabs) - 1) % len(m.tabs)
 			return nil
 		case "1", "2", "3", "4", "5", "6":
@@ -659,7 +659,7 @@ func (m *Model) repoLogins() []string {
 // classLabel names what A clones.
 func (m *Model) classLabel() string {
 	if len(m.list) > 0 {
-		return "your class (--logins + marked)"
+		return "your group (--logins + marked)"
 	}
 	return "the whole promotion"
 }

@@ -189,7 +189,7 @@ func riskLines(m *Model, r analysis.RiskScore) []string {
 	w := m.window()
 	ref := fmt.Sprintf("window %s → %s", fmtTime(w.Open), fmtTime(w.Close))
 	if w.FromClass {
-		ref = "no window from the API: the class's first and last submissions stand in for it"
+		ref = "no window from the API: the promo's first and last submissions stand in for it"
 	}
 	reasons := strings.Join(r.Reasons, "; ")
 	if reasons == "" {
@@ -206,7 +206,7 @@ func riskLines(m *Model, r analysis.RiskScore) []string {
 
 // aiLines explains an AI score.
 func aiLines(s analysis.AIScore) []string {
-	out := []string{factorRow("Level", levelCell(s.Score), sDim.Render(fmt.Sprintf("score %s: style vs class %s, absolute tells %s",
+	out := []string{factorRow("Level", levelCell(s.Score), sDim.Render(fmt.Sprintf("score %s: style vs promo %s, absolute tells %s",
 		scorePct(s.Score), scorePct(s.Style), scorePct(s.Tells))))}
 	for _, sg := range s.Signals {
 		z := ""

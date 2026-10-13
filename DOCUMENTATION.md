@@ -82,7 +82,7 @@ positional argument).
 | --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--tp SLUG`     |                | Assignment slug, alternative to the positional argument or stdin.                                                                                           |
 | `--tenant SLUG` | looked up      | Tenant of the activity (`epita-prepa-computer-science`). By default it is found in the list of activities you can access.                                   |
-| `--logins FILE` |                | Text file of logins: your **group**. The Overview and Ranking start on them (toggle with `f` in each tab), the Group tab compares them with the class, Code shows only their pairs, `A` in Repos clones them. |
+| `--logins FILE` |                | Text file of logins: your **group**. The Overview and Ranking start on them (toggle with `f` in each tab), the Group tab compares them with the promo, Code shows only their pairs, `A` in Repos clones them. |
 | `--refresh`     | off            | Ignore cached API responses (same as pressing `R`).                                                                                                         |
 | `--cache DIR`   | `~/.cache/tpi` | Cache directory.                                                                                                                                            |
 
@@ -107,7 +107,7 @@ Logins that are not part of the assignment are reported in the status bar.
 
 The **group** is the logins of the file plus the students marked with `space`
 in Ranking, so a group can also be built by hand without a file. Statistics,
-risk and code similarity are always computed on the whole class (code: every
+risk and code similarity are always computed on the whole promo (code: every
 repo on disk); the group only
 selects what is shown and what it is compared with.
 
@@ -126,12 +126,12 @@ tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore p
 
 | Tab          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, the submission window (opening → closing) and the number of risky students, code pairs and AI-looking repos per level. With `--logins`, it starts on the selection (list + marked students), with the class mean and median next to theirs; `f` switches to the whole class. |
-| **Group**    | The group against the class: students, submitted, no submission, errored, mean, median, at 100 %, average class percentile (50 = average) and code pairs involving the group. `t` switches between **Members** (grade, class percentile, status, suspicion level and flags: _no submission_, _errored_, _bottom 25 %_ of the class, _suspect_; flagged members first) and **Exercises** (group vs class pass rate per exercise, worst gap first).                                |
+| **Overview** | Students, submitted / missing, mean and median grade, grade histogram, submissions per day, the submission window (opening → closing) and the number of risky students, code pairs and AI-looking repos per level. With `--logins`, it starts on the selection (list + marked students), with the promo mean and median next to theirs; `f` switches to the whole promo. |
+| **Group**    | The group against the promo: students, submitted, no submission, errored, mean, median, at 100 %, average promo percentile (50 = average) and code pairs involving the group. `t` switches between **Members** (grade, promo percentile, status, suspicion level and flags: _no submission_, _errored_, _bottom 25 %_ of the promo, _suspect_; flagged members first) and **Exercises** (group vs promo pass rate per exercise, worst gap first).                                |
 | **Ranking**  | Every student with grade, last tag, submission time, position in the window (`+3h` after the opening, `-12min` before the closing, in yellow when in the first 10 % / last 3 %), number of submissions, status and the suspicion level with its parts: risk, code, AI. Sorting by risk ranks everyone from the submissions alone (no clone needed); sorting by suspicion puts the analysed students first, then the others by risk. Only the group by default when there is one. |
-| **Tests**    | Pass rate per test, without the per-exercise global checks; with a group, also the group pass rate and the gap with the class (`s` sorts by gap). `enter` groups the failing students by **exact failure output**: a rare wrong output shared by 2–5 students stands out; the _In group_ column counts your students.                                                                                                                                                            |
+| **Tests**    | Pass rate per test, without the per-exercise global checks; with a group, also the group pass rate and the gap with the promo (`s` sorts by gap). `enter` groups the failing students by **exact failure output**: a rare wrong output shared by 2–5 students stands out; the _In group_ column counts your students.                                                                                                                                                            |
 | **Code**     | Pairs of repos sharing code: level, reason in words (number of functions alike, best match), score, AI level of each and grades. The panel below explains the selected pair. With a group, only pairs involving one of its members (◦) are shown; `f` shows everyone. Empty until repos are cloned.                                                                                                                                                                              |
-| **Repos**    | Clones the class (`A`: the `--logins` list plus marked students, or the whole promotion without a list) or the students **marked** in Ranking (`a`), at the tag of their graded submission (`submit-*`, or `submission-*` for exams), and shows tag, commit, code and AI levels and local path. Every repo on disk is then analysed in the background.                                                                                                                           |
+| **Repos**    | Clones your group (`A`: the `--logins` list plus marked students, or the whole promotion without a list) or the students **marked** in Ranking (`a`), at the tag of their graded submission (`submit-*`, or `submission-*` for exams), and shows tag, commit, code and AI levels and local path. Every repo on disk is then analysed in the background.                                                                                                                           |
 
 Students push three kinds of tags, one per submission definition:
 
@@ -165,16 +165,16 @@ many students fail it, or every failed test under the selected group.
 
 `H` on a student (in Ranking or in their detail view) opens their
 **history**: the grade of every activity (TPs, exams and retakes, `_d`
-variants included) of their class and of the previous and next ones, e.g.
+variants included) of their promo and of the previous and next ones, e.g.
 every `*-2029`, `*-2030` and `*-2031` activity for a TP of 2030. The
-neighbouring classes are what reveal a **repeated year**: a student who
-repeated year 1 did it once with the class of 2029 and again with the class
-of 2030.
+neighbouring promos are what reveal a **repeated year**: a student who
+repeated year 1 did it once with the 2029 promo and again with the 2030
+promo.
 
 The view has one tab per **academic year + promo** in which the student
 submitted something (e.g. `Y1 · 2029 2024–25`, `Y1 · 2030 2025–26`,
 `Y2 · 2030 2026–27`), plus a **Summary** tab: average cards over every year
-and one row per year + class with the TP / exam / retake / overall averages
+and one row per year + promo with the TP / exam / retake / overall averages
 and a warning when the same year was done several times. A year tab shows the
 cards and the activities of that year only.
 
@@ -203,7 +203,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | Key                              | Action                                                                                                                                                            |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `←/→`, `tab`, `1`–`6`            | Switch tab (or section inside a detail view)                                                                                                                      |
-| `↑/↓`, `j/k`, `pgup/pgdn`, `g/G` | Move                                                                                                                                                              |
+| `↑/↓`, `pgup/pgdn`, `g/G`        | Move                                                                                                                                                              |
 | `enter`                          | Open details / comparison                                                                                                                                         |
 | `esc`                            | Back                                                                                                                                                              |
 | `q`                              | Back / quit                                                                                                                                                       |
@@ -212,7 +212,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | `e`                              | Export the risk of every student, the code pairs and the AI scores to `tpi-<slug>-<def>-suspects.csv` in the current directory (`kind` is `risk`, `code` or `ai`) |
 | `?`                              | Open / close the help (`↑/↓` scroll it)                                                                                                                           |
 | **Overview**                     |                                                                                                                                                                   |
-| `f`                              | Statistics of the `--logins` list + marked students / of the whole class                                                                                          |
+| `f`                              | Statistics of the `--logins` list + marked students / of the whole promo                                                                                          |
 | **Group**                        |                                                                                                                                                                   |
 | `t`                              | Switch between Members and Exercises                                                                                                                              |
 | `enter` / `H`                    | On a member: their detail / history                                                                                                                               |
@@ -230,7 +230,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | `H`                              | History of the student under the cursor: grades in every TP / exam by academic year + promo (asks before downloading)                                             |
 | `v`                              | Show / hide columns (IP is hidden by default; also risk, code, AI and window position); saved in `~/.config/tpi/config.json`                                      |
 | **Repos**                        |                                                                                                                                                                   |
-| `A`                              | Clone / update the class: `--logins` list + marked students, or the whole promotion without a list (confirm with `y`)                                             |
+| `A`                              | Clone / update your group: `--logins` list + marked students, or the whole promotion without a list (confirm with `y`)                                             |
 | `K`                              | Unlock your SSH key (`ssh-add`) after cloning was refused                                                                                                         |
 | `a`                              | Clone / update the marked repos                                                                                                                                   |
 | `u`                              | Unmark the student under the cursor                                                                                                                               |
@@ -275,7 +275,7 @@ Computed for every student from the submissions alone, no clone needed.
 | Factor     | Meaning                                                                                                                                                                                                                                                                                                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Grade**  | `(grade / 100)²`: 100 % stands out, 60 % barely counts, a failing student is never risky.                                                                                                                                                                                                                                                                                        |
-| **Timing** | Where the student _first reached their final grade_ falls in the submission window (`openingAt` → `closingAt` of `GET /api/activities/assignment/{assignmentUri}`). 1 at the opening, fading to 0 at 10 % of the window; 0 until the last 3 %, rising to 1 at the closing (and after it). Without a window from the API, the class's first and last submissions stand in for it. |
+| **Timing** | Where the student _first reached their final grade_ falls in the submission window (`openingAt` → `closingAt` of `GET /api/activities/assignment/{assignmentUri}`). 1 at the opening, fading to 0 at 10 % of the window; 0 until the last 3 %, rising to 1 at the closing (and after it). Without a window from the API, the promo's first and last submissions stand in for it. |
 | **Jump**   | 0.5 when the first submission is already ≥ 90 %; otherwise grows from 0 (+30 points) to 0.5 (+80 points) between two consecutive submissions reaching ≥ 80 %. Disabled on all-or-nothing definitions such as `archi` (≥ 90 % of the grades are 0 or 100 %).                                                                                                                      |
 
 `risk = grade × (0.4 + 0.6 × min(1, timing + jump))`: 100 % built step by
@@ -339,7 +339,7 @@ names the tool and the commits (`commits credit Claude: 3 commits (a1b2c3d …)`
 Otherwise two parts, combined as `1 − (1 − style)(1 − tells)`:
 
 - **Style** (needs at least 5 repos): each measure is compared with the
-  class (standard deviations above the mean); the mean of the 3 highest,
+  promo (standard deviations above the mean); the mean of the 3 highest,
   `x`, gives `1 − e^(−x/2)`. Measures: share of comment lines; share of
   comment lines that are full sentences; share of functions with a structured
   doc comment (`@brief`, `@param`, `Args:`, `Returns:`…); share of functions
@@ -354,12 +354,12 @@ Otherwise two parts, combined as `1 − (1 − style)(1 − tells)`:
   least half of the commits; one commit holding ≥ 80 % of ≥ 150 lines (counts
   half). `tells = 1 − e^(−n/1.5)`.
 
-The student's Suspects section lists each signal with its value and the class
+The student's Suspects section lists each signal with its value and the promo
 median, and the functions to read first.
 
 ## Repos
 
-`A` clones the class after a `y` confirmation: the `--logins` list plus the
+`A` clones your group after a `y` confirmation: the `--logins` list plus the
 marked students, or the whole promotion when no list is given. `a` clones only the students
 marked with `space` in Ranking (or in a student's page). TPs clone the graded
 `submit` tag, exams the graded `submission` tag.

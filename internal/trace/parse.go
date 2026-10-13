@@ -113,7 +113,7 @@ var errorsNameRe = regexp.MustCompile(`^Errors?( \d+)?$`)
 // IsGlobalCheck reports whether a test is a per-exercise global check rather
 // than a real test case: memory-error counters ("Memory Error › Errors 3"),
 // build error checks ("records › Errors") and "Does not compile" failures.
-// Comparing them across the whole class makes no sense, but they are still
+// Comparing them across the whole promo makes no sense, but they are still
 // worth seeing when comparing two students.
 func IsGlobalCheck(t Test) bool {
 	return strings.HasSuffix(t.Class, "Memory Error") ||

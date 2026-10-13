@@ -30,13 +30,13 @@ var historySorts = []string{"activity", "date", "grade"}
 // historyKinds are the activity kinds with their own average, in order.
 var historyKinds = []struct{ kind, name string }{{"p", "TPs"}, {"e", "Exams"}, {"r", "Retakes"}}
 
-// historySection is an academic year done with one class: a student who
+// historySection is an academic year done with one promo: a student who
 // repeated a year has it twice, with two promos.
 type historySection struct{ year, promo int }
 
 func (s historySection) label() string { return fmt.Sprintf("Y%d · %d", s.year, s.promo) }
 
-// academic returns the school year, e.g. 2025–26 for year 1 of the class of 2030.
+// academic returns the school year, e.g. 2025–26 for year 1 of the 2030 promo.
 func (s historySection) academic() string {
 	start := s.promo - 5 + s.year - 1
 	return fmt.Sprintf("%d–%02d", start, (start+1)%100)
@@ -48,8 +48,8 @@ func sectionOf(e data.HistoryEntry) (historySection, bool) {
 }
 
 // historyView shows the grade of one student in every activity of their
-// class and the neighbouring ones (TPs, exams, retakes), one tab per
-// academic year + class, downloaded on demand after a confirmation.
+// promo and the neighbouring ones (TPs, exams, retakes), one tab per
+// academic year + promo, downloaded on demand after a confirmation.
 type historyView struct {
 	login    string
 	promo    int
@@ -165,11 +165,11 @@ func (v *historyView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		v.rebuild()
 	}
 	switch key {
-	case "tab", "right", "l":
+	case "tab", "right":
 		v.sec = (v.sec + 1) % (len(v.sections) + 1)
 		v.built = nil
 		return nil
-	case "shift+tab", "left", "h":
+	case "shift+tab", "left":
 		v.sec = (v.sec + len(v.sections)) % (len(v.sections) + 1)
 		v.built = nil
 		return nil
@@ -228,7 +228,7 @@ func kindOf(e data.HistoryEntry) string {
 	return ""
 }
 
-// buildSections lists the academic year + class pairs with a submission.
+// buildSections lists the academic year + promo pairs with a submission.
 func (v *historyView) buildSections() {
 	seen := map[historySection]bool{}
 	v.sections = nil
@@ -280,7 +280,7 @@ func (v *historyView) rebuildSummary() {
 	v.tSum.Cols = []Column{
 		{Title: "School year", Width: 11},
 		{Title: "Year", Width: 4},
-		{Title: "Class", Width: 5},
+		{Title: "Promo", Width: 5},
 		{Title: "TPs", Width: 5, Right: true},
 		{Title: "Exams", Width: 5, Right: true},
 		{Title: "Retakes", Width: 7, Right: true},
@@ -308,7 +308,7 @@ func (v *historyView) rebuildSummary() {
 			sc.academic(), fmt.Sprint(sc.year), fmt.Sprint(sc.promo),
 			avgCell(st[0]), avgCell(st[1]), avgCell(st[2]), avgCell(all), pctBar(avg, 12), note}})
 	}
-	v.tSum.Empty = "No submission in any activity of these classes."
+	v.tSum.Empty = "No submission in any activity of these promos."
 	v.tSum.SetRows(rows)
 }
 
@@ -453,11 +453,11 @@ func (v *historyView) View(m *Model, w, h int) string {
 		var acts []forge.Activity
 		promos := data.HistoryPromos(v.promo)
 		if _, ok := (&data.Cache{Root: m.loader.Cache.Root}).ReadJSON("activities.json", &acts); ok {
-			est = fmt.Sprintf(" (about %d)", len(data.ClassActivities(acts, promos)))
+			est = fmt.Sprintf(" (about %d)", len(data.PromoActivities(acts, promos)))
 		}
 		msg := sBold.Render("Download the history of "+v.login+"?") + "\n\n" +
-			sDim.Render(fmt.Sprintf("One request per activity of the classes %d–%d%s: TPs, exams and retakes,", promos[0], promos[len(promos)-1], est)) + "\n" +
-			sDim.Render("including the neighbouring classes to find a repeated year.") + "\n" +
+			sDim.Render(fmt.Sprintf("One request per activity of the promos %d–%d%s: TPs, exams and retakes,", promos[0], promos[len(promos)-1], est)) + "\n" +
+			sDim.Render("including the neighbouring promos to find a repeated year.") + "\n" +
 			sDim.Render("Only grades are fetched, no traces. The result is cached.") + "\n\n" +
 			keyHint("y", "download") + "   " + keyHint("n/esc", "cancel")
 		if v.h != nil {
@@ -491,7 +491,7 @@ func (v *historyView) View(m *Model, w, h int) string {
 			errs++
 		}
 	}
-	info := fmt.Sprintf("Classes %d–%d · %d activities, %d with submissions · downloaded %s ago",
+	info := fmt.Sprintf("Promos %d–%d · %d activities, %d with submissions · downloaded %s ago",
 		v.h.Promos[0], v.h.Promos[len(v.h.Promos)-1], len(v.h.Entries), withSubs, fmtDuration(time.Since(v.h.FetchedAt)))
 	if errs > 0 {
 		info += sBad.Render(fmt.Sprintf(" · %d errors", errs))
@@ -514,7 +514,7 @@ func (v *historyView) View(m *Model, w, h int) string {
 	}
 	title := "Every year"
 	if cur != nil {
-		title = fmt.Sprintf("Year %d with the class of %d (%s)", cur.year, cur.promo, cur.academic())
+		title = fmt.Sprintf("Year %d with the %d promo (%s)", cur.year, cur.promo, cur.academic())
 	}
 	head := nav + "\n\n" + sBold.Render(title) + sDim.Render("  ·  "+info) + "\n" + cardRow + "\n"
 	note := sDim.Render("Grade = newest submission of the graded definition (submit/submission); averages ignore activities without a submission.")

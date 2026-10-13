@@ -191,28 +191,28 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 		return &feature{name: name, detail: detail, values: map[string]float64{}}
 	}
 	fComments := mk("many comments", func(v, med float64) string {
-		return fmt.Sprintf("%s of lines are comments (class median %s)", pct(v), pct(med))
+		return fmt.Sprintf("%s of lines are comments (promo median %s)", pct(v), pct(med))
 	})
 	fSentences := mk("sentence comments", func(v, med float64) string {
-		return fmt.Sprintf("%s of comment lines are full sentences (class median %s)", pct(v), pct(med))
+		return fmt.Sprintf("%s of comment lines are full sentences (promo median %s)", pct(v), pct(med))
 	})
 	fDocs := mk("doc comments", func(v, med float64) string {
-		return fmt.Sprintf("%s of functions have a structured doc comment (class median %s)", pct(v), pct(med))
+		return fmt.Sprintf("%s of functions have a structured doc comment (promo median %s)", pct(v), pct(med))
 	})
 	fGuards := mk("guard clauses", func(v, med float64) string {
-		return fmt.Sprintf("%s of functions start by checking their arguments (class median %s)", pct(v), pct(med))
+		return fmt.Sprintf("%s of functions start by checking their arguments (promo median %s)", pct(v), pct(med))
 	})
 	fIdent := mk("long names", func(v, med float64) string {
-		return fmt.Sprintf("identifiers average %.1f characters (class median %.1f)", v, med)
+		return fmt.Sprintf("identifiers average %.1f characters (promo median %.1f)", v, med)
 	})
 	fRare := mk("unusual constructs", func(v, med float64) string {
-		return fmt.Sprintf("%.0f keywords / library calls almost nobody else uses (class median %.0f)", v, med)
+		return fmt.Sprintf("%.0f keywords / library calls almost nobody else uses (promo median %.0f)", v, med)
 	})
 	fFew := mk("few commits", func(v, med float64) string {
-		return fmt.Sprintf("%.0f commits (class median %.0f)", -v, -med)
+		return fmt.Sprintf("%.0f commits (promo median %.0f)", -v, -med)
 	})
 	fBig := mk("code in one commit", func(v, med float64) string {
-		return fmt.Sprintf("one commit adds %s of the code (class median %s)", pct(v), pct(med))
+		return fmt.Sprintf("one commit adds %s of the code (promo median %s)", pct(v), pct(med))
 	})
 	features := []*feature{fComments, fSentences, fDocs, fGuards, fIdent, fRare, fFew, fBig}
 

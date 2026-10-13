@@ -18,9 +18,9 @@ func (v *helpView) Keys() []string { return []string{keyHint("↑/↓", "scroll"
 
 func (v *helpView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	switch k.String() {
-	case "up", "k":
+	case "up":
 		v.offset--
-	case "down", "j":
+	case "down":
 		v.offset++
 	case "pgup":
 		v.offset -= v.height
@@ -41,7 +41,7 @@ func (v *helpView) View(m *Model, w, h int) string {
 	text := strings.Join([]string{
 		sec("General"),
 		k("←/→ tab 1-6", "switch tab"),
-		k("↑/↓ j/k", "move; pgup/pgdn, g/G top/bottom"),
+		k("↑/↓", "move; pgup/pgdn, g/G top/bottom"),
 		k("enter", "open details / comparison"),
 		k("esc q", "back / quit"),
 		k("m", "switch submission definition (submit / submission ↔ archi)"),
@@ -50,23 +50,23 @@ func (v *helpView) View(m *Model, w, h int) string {
 		k("?", "open / close this help"),
 		sec("Reading the suspicion"),
 		"  " + sDim.Render("Suspicion = 1 − (1−risk)(1−code)(1−AI): signals add up. Each says why in words. Hints only: read the code."),
-		"  " + sBold.Render("Risk") + sDim.Render("   from the submissions of the whole class, no clone needed:"),
+		"  " + sBold.Render("Risk") + sDim.Render("   from the submissions of the whole promo, no clone needed:"),
 		"  " + sDim.Render("       (grade/100)² × (0.4 + 0.6 × min(1, timing + jump)). Timing: the final grade reached in the first"),
 		"  " + sDim.Render("       10% or the last 3% of the submission window. Jump (≤ 0.5): first submission already ≥ 90%, or +80 points at once."),
 		"  " + sBold.Render("Code") + sDim.Render("   function bodies alike between two repos once names and layout are ignored (winnowing, like MOSS);"),
 		"  " + sDim.Render("       code most repos share (the skeleton) is ignored. Functions identical but for whitespace / comments count extra."),
-		"  " + sBold.Render("AI") + sDim.Render("     style far from the class (comments, doc tags, guard clauses, long names, rare constructs,"),
+		"  " + sBold.Render("AI") + sDim.Render("     style far from the promo (comments, doc tags, guard clauses, long names, rare constructs,"),
 		"  " + sDim.Render("       history in one commit) plus absolute tells (— → emojis, @param docs, generated commit messages)."),
 		"  " + sDim.Render("       A commit crediting an AI tool (Co-Authored-By: Claude, Generated with…, copilot[bot]) sets it ≥ 95%."),
-		"  " + sDim.Render("Code and AI only cover repos on disk: A in Repos clones the class.  Level ") + sBad.Bold(true).Render("high") +
+		"  " + sDim.Render("Code and AI only cover repos on disk: A in Repos clones your group.  Level ") + sBad.Bold(true).Render("high") +
 			sDim.Render(" ≥ 80%, ") + sWarn.Render("medium") + sDim.Render(" ≥ 50%, low below."),
 		sec("Overview"),
-		k("f", "statistics of the --logins list + marked students / whole class"),
+		k("f", "statistics of the --logins list + marked students / whole promo"),
 		sec("Group  (--logins list + students marked with space)"),
 		k("t", "section: Members (problems first) · Exercises (worst gap first)"),
 		k("enter / H", "on a member: their detail / history"),
 		sec("Tests / Code"),
-		k("s", "Tests: sort by pass rate, name or group gap (group vs class)"),
+		k("s", "Tests: sort by pass rate, name or group gap (group vs promo)"),
 		k("f", "Code: only pairs with a member of your group / everyone"),
 		k("enter", "Code: compare the pair, matched functions side by side"),
 		sec("Ranking"),
@@ -75,7 +75,7 @@ func (v *helpView) View(m *Model, w, h int) string {
 		k("f", "show only the --logins list + marked students"),
 		k("space", "mark student (a in Repos clones the marked students)"),
 		k("c", "compare the 2 marked (or 1 marked + cursor)"),
-		k("H", "history: grades in every TP / exam, by academic year + class (asks first)"),
+		k("H", "history: grades in every TP / exam, by academic year + promo (asks first)"),
 		k("v", "show / hide columns (saved in ~/.config/tpi/config.json)"),
 		sec("Student"),
 		k("tab", "sections: Trace (graded submit / submission) · Tags · Suspects (risk, AI, code pairs)"),
@@ -89,13 +89,13 @@ func (v *helpView) View(m *Model, w, h int) string {
 		k("E / C", "expand / collapse everything"),
 		k("H", "history of the student"),
 		sec("History"),
-		k("tab / ← →", "Summary · one tab per academic year + class (shows repeated years)"),
+		k("tab / ← →", "Summary · one tab per academic year + promo (shows repeated years)"),
 		k("s / r", "sort by activity, date or grade / reverse"),
 		k("k", "every kind / only TPs / exams / retakes"),
 		k("a", "also show activities without a submission"),
 		k("U", "download the history again (asks first)"),
 		sec("Repos"),
-		k("A", "clone / update the class: --logins + marked, else the whole promotion (asks y)"),
+		k("A", "clone / update your group: --logins + marked, else the whole promotion (asks y)"),
 		k("K", "unlock your SSH key (ssh-add) when cloning was refused"),
 		k("a", "clone / update the marked students' repos at their graded submit-* / submission-* tag"),
 		k("u", "unmark the student under the cursor"),

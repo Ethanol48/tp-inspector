@@ -104,7 +104,7 @@ func (v *codeView) View(m *Model, w, h int) string {
 		v.rebuild(m)
 		v.gen = m.gen
 	}
-	head := sDim.Render("Pairs of repos with function bodies alike once names and layout are ignored; code most of the class shares (the skeleton) does not count.")
+	head := sDim.Render("Pairs of repos with function bodies alike once names and layout are ignored; code most of the promo shares (the skeleton) does not count.")
 	if m.code != nil {
 		head += "\n" + sDim.Render(fmt.Sprintf("%d repos compared (only the repos on disk: A in Repos clones %s).", len(m.code.Repos), m.classLabel()))
 	}

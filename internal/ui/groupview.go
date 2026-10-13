@@ -85,7 +85,7 @@ func (v *groupView) rebuild(m *Model) {
 		return ms[i].login < ms[j].login
 	})
 	v.tMem.Cols = []Column{{Title: "Login", Width: 0}, {Title: "Grade", Width: 5, Right: true}, {Title: "", Width: 12},
-		{Title: "Class pctl", Width: 10, Right: true}, {Title: "Status", Width: 13}, {Title: "Suspicion", Width: 9},
+		{Title: "Promo pctl", Width: 10, Right: true}, {Title: "Status", Width: 13}, {Title: "Suspicion", Width: 9},
 		{Title: "Flags", Width: 28}}
 	rows := make([]Row, len(ms))
 	for i, e := range ms {
@@ -124,7 +124,7 @@ func (v *groupView) rebuild(m *Model) {
 		return es[i].cat < es[j].cat
 	})
 	v.tEx.Cols = []Column{{Title: "Exercise", Width: 0}, {Title: "Group", Width: 5, Right: true}, {Title: "", Width: 14},
-		{Title: "Class", Width: 5, Right: true}, {Title: "Gap", Width: 10, Right: true}}
+		{Title: "Promo", Width: 5, Right: true}, {Title: "Gap", Width: 10, Right: true}}
 	rows = make([]Row, len(es))
 	for i, e := range es {
 		rows[i] = Row{Key: e.cat, Cells: []string{e.cat, pctCell(e.gp), pctBar(e.gp, 14), pctCell(e.cp),
@@ -182,7 +182,7 @@ func (v *groupView) statsTable() string {
 		return pctStyle(int(f)).Render(fmt.Sprintf("%.1f%%", f))
 	}
 	lines := []string{
-		sHeader.Render(padRight("", 15)) + padLeft(sHeader.Render("Group"), 8) + padLeft(sHeader.Render("Class"), 8),
+		sHeader.Render(padRight("", 15)) + padLeft(sHeader.Render("Group"), 8) + padLeft(sHeader.Render("Promo"), 8),
 		line("students", fmt.Sprint(g.n), fmt.Sprint(c.n), ""),
 		line("submitted", fmt.Sprint(g.delivered), fmt.Sprint(c.delivered), pctOf(g.delivered, g.n)),
 		line("no submission", fmt.Sprint(g.missing), fmt.Sprint(c.missing), pctOf(g.missing, g.n)),
@@ -192,8 +192,8 @@ func (v *groupView) statsTable() string {
 		line("at 100%", fmt.Sprint(g.full), fmt.Sprint(c.full), ""),
 	}
 	if v.avgPctl >= 0 {
-		lines = append(lines, sDim.Render(padRight("class pctl", 15))+padLeft(fmt.Sprint(v.avgPctl), 8)+
-			sDim.Render(fmt.Sprintf("   on average the group beats %d%% of the class (50 = average)", v.avgPctl)))
+		lines = append(lines, sDim.Render(padRight("promo pctl", 15))+padLeft(fmt.Sprint(v.avgPctl), 8)+
+			sDim.Render(fmt.Sprintf("   on average the group beats %d%% of the promo (50 = average)", v.avgPctl)))
 	}
 	sus := sDim.Render("none")
 	if v.suspectPair > 0 {
@@ -210,7 +210,7 @@ func (v *groupView) View(m *Model, w, h int) string {
 	}
 	if v.grp.n == 0 {
 		return sDim.Render("No group yet.\n\nPass a list of logins with --logins list.txt, or mark students with space in the Ranking tab:\n" +
-			"this tab then compares them with the whole class.")
+			"this tab then compares them with the whole promo.")
 	}
 	head := v.statsTable() + "\n\n" + renderTabs(groupSections, v.sub) + "\n"
 	used := strings.Count(head, "\n") + 1

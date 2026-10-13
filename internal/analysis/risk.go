@@ -129,7 +129,7 @@ func riskOf(st *data.Student, sd string, win Window, jumps bool) (RiskScore, boo
 
 	ref := "the window"
 	if win.FromClass {
-		ref = "the class's submissions"
+		ref = "the promo's submissions"
 	}
 	f := win.Fraction(r.DoneAt)
 	soon := clamp01(1 - f/SoonFraction)
