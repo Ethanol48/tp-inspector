@@ -44,7 +44,7 @@ func main() {
 	tenant := flag.String("tenant", "", "tenant slug (default: looked up in your activities)")
 	refresh := flag.Bool("refresh", false, "ignore cached API responses")
 	cacheDir := flag.String("cache", data.DefaultCacheRoot(), "cache directory")
-	loginsFile := flag.String("logins", "", "text file of logins (one per line, # comments): your group, compared with the class in the Group tab; Ranking and Code show only them (toggle with f)")
+	loginsFile := flag.String("logins", "", "text file of logins (one per line, # comments): your group; Overview and Ranking start on them (toggle with f), the Group tab compares them with the class, A in Repos clones them")
 	flag.Parse()
 
 	auth := forge.NewAuth()
@@ -158,32 +158,32 @@ func clean(root string, args []string) error {
 			bytes += e.DataBytes
 		}
 	}
-	
+
 	what := fmt.Sprintf("%d cloned repos (%s)", nRepos, data.HumanBytes(bytes))
 	if *all {
 		what = fmt.Sprintf("the whole cache %s: %d assignments, %d repos (%s)", root, len(entries), nRepos, data.HumanBytes(bytes))
 	}
-	
+
 	if len(entries) == 0 || (*reposOnly && nRepos == 0) {
 		fmt.Fprintln(os.Stderr, "Nothing to delete.")
 		return nil
 	}
-	
+
 	if !*yes && !confirm("Delete "+what+"?") {
 		fmt.Fprintln(os.Stderr, "Cancelled.")
 		return nil
 	}
-	
+
 	if *all {
 		err = data.RemoveEverything(root)
 	} else {
 		err = data.RemoveAllRepos(root)
 	}
-	
+
 	if err == nil {
 		fmt.Fprintln(os.Stderr, "Deleted", what+".")
 	}
-	
+
 	return err
 }
 
@@ -211,7 +211,7 @@ func dump(c *forge.Client, path string, kv []string) {
 
 	b, err := c.GetRaw(path, q)
 	exitOn(err)
-	
+
 	var v any
 	if json.Unmarshal(b, &v) == nil {
 		b, _ = json.MarshalIndent(v, "", "  ")

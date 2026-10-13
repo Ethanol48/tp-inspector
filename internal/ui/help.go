@@ -60,6 +60,8 @@ func (v *helpView) View(m *Model, w, h int) string {
 		"  " + sDim.Render("       A commit crediting an AI tool (Co-Authored-By: Claude, Generated with…, copilot[bot]) sets it ≥ 95%."),
 		"  " + sDim.Render("Code and AI only cover repos on disk: A in Repos clones the class.  Level ") + sBad.Bold(true).Render("high") +
 			sDim.Render(" ≥ 80%, ") + sWarn.Render("medium") + sDim.Render(" ≥ 50%, low below."),
+		sec("Overview"),
+		k("f", "statistics of the --logins list + marked students / whole class"),
 		sec("Group  (--logins list + students marked with space)"),
 		k("t", "section: Members (problems first) · Exercises (worst gap first)"),
 		k("enter / H", "on a member: their detail / history"),

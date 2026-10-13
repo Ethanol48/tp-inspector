@@ -159,34 +159,28 @@ func (l *Loader) historyEntry(a forge.Activity, login string) HistoryEntry {
 // gradedSD picks the definition that holds the grade among those of subs.
 func gradedSD(subs []forge.Submission) string {
 	var names []string
-	seen := map[string]bool{}
 	for _, s := range subs {
-		n := SDName(s.SubmissionDefinitionURI)
-		if strings.Contains(s.SubmissionDefinitionURI, "/Assistants-") || seen[n] {
-			continue
+		if !strings.Contains(s.SubmissionDefinitionURI, "/Assistants-") {
+			names = append(names, SDName(s.SubmissionDefinitionURI))
 		}
-		seen[n] = true
-		names = append(names, n)
 	}
-	return PickGradedSD(names)
+	return GradedSDName(names)
 }
 
-// PickGradedSD picks the definition that runs the testsuite and holds the
-// grade: "submit" for TPs (submit-* tags), "submission" for exams
-// (submission-* tags), otherwise the first other one that is not an archi
-// check (archi-* tags only check the repository layout) or a dummy.
-func PickGradedSD(names []string) string {
-	has := map[string]bool{}
+// GradedSDName picks the definition that holds the grade: "submit" for TPs,
+// "submission" for exams, otherwise anything but archi/dummy ones.
+func GradedSDName(names []string) string {
+	set := map[string]bool{}
 	for _, n := range names {
-		has[n] = true
+		set[n] = true
 	}
 	for _, pref := range []string{"submit", "submission"} {
-		if has[pref] {
+		if set[pref] {
 			return pref
 		}
 	}
 	var rest []string
-	for _, n := range names {
+	for n := range set {
 		if !strings.Contains(n, "archi") && !strings.Contains(n, "dummy") {
 			rest = append(rest, n)
 		}

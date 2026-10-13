@@ -16,7 +16,7 @@ Requires **Go 1.26+**
 and `git`.
 
 ```sh
-git clone <this repo> tp-inspector
+git clone https://gitlab.cri.epita.fr/ethan.rouimi/tp-inspector.git
 cd tp-inspector
 go build -o tpi ./cmd/tpi
 ```
@@ -71,7 +71,8 @@ Those students (plus any you mark with `space`) form **your group**:
   submitted / missing, average class percentile, the pass rate of each
   exercise (worst gap first) and the members who need attention (no
   submission, errored, bottom 25 % of the class, suspect);
-- Overview adds the group mean and median next to the class ones;
+- the **Overview** (mean, median, histogram…) starts on them, with the class
+  mean and median next to theirs; `f` switches to the whole class;
 - Tests adds the group pass rate and the gap with the class (`s` sorts by gap);
 - Ranking and Code show only the group; `f` switches to the whole class.
 
@@ -98,8 +99,8 @@ student with several signals ranks above one with a single strong signal:
 Code and AI need the repos on disk: press `A` in the **Repos** tab to clone
 your class, which is the `--logins` list plus marked students, or the whole
 promotion without a list (a copy is only found between two repos on disk),
-then the analysis runs by itself. Sort the Ranking by suspicion (`s`) to know whom to
-check first.
+then the analysis runs by itself. Sort the Ranking by risk (`s`) to know whom
+to check first, then by suspicion once their repos are analysed.
 
 The first load downloads the submissions and traces of the class (cached in
 `~/.cache/tpi`, so later runs are instant). Then:
@@ -125,3 +126,12 @@ Scores are **hints**, not proof: always read the code before concluding.
 [DOCUMENTATION.md](DOCUMENTATION.md) covers every flag (`--logins`,
 `--refresh`…), tab, key, the suspicion scoring, repo cloning, the cache,
 `tpi clean` and notes on the operator API.
+
+## Contribute
+
+[CONTRIBUTING.md](CONTRIBUTING.md) explains every step.
+
+## License
+
+[MIT](LICENSE): free to use, modify and share, as long as the copyright notice
+is kept.

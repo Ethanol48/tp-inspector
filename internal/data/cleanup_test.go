@@ -65,7 +65,7 @@ func TestCleanup(t *testing.T) {
 	}
 }
 
-func TestPickGradedSD(t *testing.T) {
+func TestGradedSDName(t *testing.T) {
 	for _, c := range []struct {
 		names []string
 		want  string
@@ -76,8 +76,8 @@ func TestPickGradedSD(t *testing.T) {
 		{[]string{"acdc-archi", "acdc-submit"}, "acdc-submit"},
 		{[]string{"archi"}, ""},
 	} {
-		if got := PickGradedSD(c.names); got != c.want {
-			t.Errorf("PickGradedSD(%v) = %q, want %q", c.names, got, c.want)
+		if got := GradedSDName(c.names); got != c.want {
+			t.Errorf("GradedSDName(%v) = %q, want %q", c.names, got, c.want)
 		}
 	}
 }

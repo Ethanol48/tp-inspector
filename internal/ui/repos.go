@@ -73,7 +73,7 @@ func (v *reposView) rebuild(m *Model) {
 			} else {
 				status, commit, path = sGood.Render("cloned"), r.Commit, sDim.Render(r.Dir)
 				if r.Ref != tag {
-					status = sWarn.Render("outdated") // a newer submit was graded since
+					status = sWarn.Render("outdated") // a newer submission was graded since
 				}
 			}
 		}

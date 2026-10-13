@@ -65,7 +65,8 @@ func (s *Student) Percent(sd string) int {
 type Dataset struct {
 	Slug      tp.Slug
 	Activity  forge.Activity
-	SDs       []string                          // student submission definition short names, the graded one first
+	SDs       []string                          // student submission definition short names, Graded first
+	Graded    string                            // the definition that holds the grade ("submit", "submission"…), "" if none
 	SDURIs    map[string]string                 // short name -> full URI
 	Windows   map[string]forge.SubmissionWindow // short name -> opening/closing times, when known
 	Students  []*Student                        // sorted by login
@@ -117,8 +118,8 @@ func (l *Loader) Load(slug tp.Slug, progress Progress) (*Dataset, error) {
 		ds.SDs = append(ds.SDs, name)
 		ds.SDURIs[name] = u
 	}
-	graded := PickGradedSD(ds.SDs)
-	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == graded && ds.SDs[j] != graded })
+	ds.Graded = GradedSDName(ds.SDs)
+	sort.SliceStable(ds.SDs, func(i, j int) bool { return ds.SDs[i] == ds.Graded && ds.SDs[j] != ds.Graded })
 	if len(ds.SDs) == 0 {
 		return nil, fmt.Errorf("%s has no student submission definitions", act.URI)
 	}
@@ -280,12 +281,11 @@ func (l *Loader) windows(ds *Dataset, c *Cache) {
 	}
 }
 
-// GradedSD is the definition that runs the testsuite and holds the grade:
-// "submit" for TPs, "submission" for exams (see PickGradedSD), or the first
-// definition when none qualifies.
+// GradedSD is the definition whose traces are browsed and whose graded tag
+// is cloned: ds.Graded, or the first definition when none qualifies.
 func (ds *Dataset) GradedSD() string {
-	if sd := PickGradedSD(ds.SDs); sd != "" {
-		return sd
+	if ds.Graded != "" {
+		return ds.Graded
 	}
 	if len(ds.SDs) > 0 {
 		return ds.SDs[0]

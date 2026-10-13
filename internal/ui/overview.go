@@ -12,11 +12,55 @@ import (
 	"tp-inspector/internal/analysis"
 )
 
-type overviewView struct{}
+type overviewView struct {
+	onlyList bool // statistics of the --logins list and marked students only
+}
 
-func (v *overviewView) Title() string                         { return "Overview" }
-func (v *overviewView) Keys() []string                        { return nil }
-func (v *overviewView) Update(m *Model, k tea.KeyMsg) tea.Cmd { return nil }
+func (v *overviewView) Title() string  { return "Overview" }
+func (v *overviewView) Keys() []string { return []string{keyHint("f", "selection / whole class")} }
+
+func (v *overviewView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
+	if k.String() == "f" {
+		v.onlyList = !v.onlyList
+	}
+	return nil
+}
+
+// meanMedian returns the mean and the median of sorted percentages; the
+// median of an even count is the mean of the two middle values.
+func meanMedian(sorted []int) (mean, median float64) {
+	n := len(sorted)
+	if n == 0 {
+		return 0, 0
+	}
+	for _, p := range sorted {
+		mean += float64(p)
+	}
+	mean /= float64(n)
+	if n%2 == 1 {
+		median = float64(sorted[n/2])
+	} else {
+		median = float64(sorted[n/2-1]+sorted[n/2]) / 2
+	}
+	return mean, median
+}
+
+// fmtPct prints a percentage with one decimal, dropping a trailing ".0".
+func fmtPct(p float64) string {
+	return strings.TrimSuffix(fmt.Sprintf("%.1f", p), ".0") + "%"
+}
+
+// classPercents returns the sorted grades of every student who has one.
+func (m *Model) classPercents() []int {
+	var ps []int
+	for _, st := range m.ds.Students {
+		if p := st.Percent(m.sd); p >= 0 {
+			ps = append(ps, p)
+		}
+	}
+	sort.Ints(ps)
+	return ps
+}
 
 func card(value, label string, style lipgloss.Style) string {
 	return sCard.Render(style.Bold(true).Render(value) + "\n" + sDim.Render(label))
@@ -24,12 +68,15 @@ func card(value, label string, style lipgloss.Style) string {
 
 func (v *overviewView) View(m *Model, w, h int) string {
 	ds := m.ds
-	cs := computeStats(ds.Students, m.sd)
-	percents := cs.percents
-	var nSubs int
+	var percents []int
+	var nStudents, nSubs, delivered, full, errors int
 	days := map[string]int{}
 	var firstDay, lastDay time.Time
 	for _, st := range ds.Students {
+		if v.onlyList && !m.inSelection(st.Login) {
+			continue
+		}
+		nStudents++
 		subs := st.SubsFor(m.sd)
 		nSubs += len(subs)
 		for _, s := range subs {
@@ -43,49 +90,78 @@ func (v *overviewView) View(m *Model, w, h int) string {
 				lastDay = day
 			}
 		}
+		last := st.Last(m.sd)
+		if last == nil {
+			continue
+		}
+		delivered++
+		if last.Status == "ERROR" {
+			errors++
+		}
+		if p := st.Percent(m.sd); p >= 0 {
+			percents = append(percents, p)
+			if p == 100 {
+				full++
+			}
+		}
 	}
+	sort.Ints(percents)
+	mean, median := meanMedian(percents)
 
 	var b strings.Builder
-	b.WriteString(sDim.Render(m.slug.Describe()+" · "+ds.Activity.URI) + "\n")
+	b.WriteString(sDim.Render(m.slug.Describe() + " · " + ds.Activity.URI))
+	b.WriteString("\n")
 	if win := ds.Window(m.sd); win != nil {
 		b.WriteString(sDim.Render(fmt.Sprintf("%s open %s → close %s (%s)", m.sd, fmtTime(win.OpeningAt), fmtTime(win.ClosingAt),
-			fmtDuration(win.ClosingAt.Sub(win.OpeningAt)))) + "\n")
+			fmtDuration(win.ClosingAt.Sub(win.OpeningAt)))))
+		b.WriteString("\n")
 	} else {
-		b.WriteString(sDim.Render("no submission window from the API for "+m.sd+": timing uses the class's first and last submissions") + "\n")
+		b.WriteString(sDim.Render("no submission window from the API for " + m.sd + ": timing uses the class's first and last submissions"))
+		b.WriteString("\n")
 	}
-	b.WriteString("\n")
-
-	// writeCards wraps cards to the available width.
-	writeCards := func(cards []string) {
-		var row []string
-		for _, c := range cards {
-			if lipgloss.Width(lipgloss.JoinHorizontal(lipgloss.Top, append(row, c)...)) > w && len(row) > 0 {
-				b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n")
-				row = nil
-			}
-			row = append(row, c)
+	meanLabel, medianLabel := "mean", "median"
+	if v.onlyList {
+		b.WriteString(sAccent.Render(fmt.Sprintf("Selection only: %d students (--logins list + marked)", nStudents)))
+		b.WriteString(sDim.Render(" · f for the whole class"))
+		b.WriteString("\n\n")
+		if nStudents == 0 {
+			b.WriteString(sDim.Render("No selection: use --logins list.txt or mark students with space in Ranking."))
+			b.WriteString("\n")
+			return b.String()
 		}
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...) + "\n")
+		cMean, cMedian := meanMedian(m.classPercents())
+		meanLabel = "mean (class " + fmtPct(cMean) + ")"
+		medianLabel = "median (class " + fmtPct(cMedian) + ")"
+	} else {
+		scope := "Whole class"
+		if len(m.list) > 0 || countTrue(m.marked) > 0 {
+			scope += sDim.Render(" · f for the selection only")
+		}
+		b.WriteString(sAccent.Render(scope))
+		b.WriteString("\n\n")
 	}
-	writeCards([]string{
-		card(fmt.Sprint(cs.n), "students", sBold),
-		card(fmt.Sprint(cs.delivered), "submitted", sGood),
-		card(fmt.Sprint(cs.missing), "no submission", sBad),
-		card(fmt.Sprintf("%.1f%%", cs.mean), "mean", pctStyle(int(cs.mean))),
-		card(fmt.Sprintf("%.1f%%", cs.median), "median", pctStyle(int(cs.median))),
-		card(fmt.Sprint(cs.full), "at 100%", sGood),
+
+	cards := []string{
+		card(fmt.Sprint(nStudents), "students", sBold),
+		card(fmt.Sprint(delivered), "submitted", sGood),
+		card(fmt.Sprint(nStudents-delivered), "no submission", sBad),
+		card(fmtPct(mean), meanLabel, pctStyle(int(mean))),
+		card(fmtPct(median), medianLabel, pctStyle(int(median))),
+		card(fmt.Sprint(full), "at 100%", sGood),
 		card(fmt.Sprint(nSubs), "submissions ("+m.sd+")", sAccent),
-	})
-	if gs := computeStats(m.groupStudents(), m.sd); gs.n > 0 {
-		writeCards([]string{
-			card(fmt.Sprint(gs.n), "your group", sAccent),
-			card(fmt.Sprintf("%d/%d", gs.delivered, gs.n), "group submitted", sGood),
-			card(fmt.Sprintf("%.1f%%", gs.mean), "group mean "+deltaCell(gs.mean-cs.mean, ""), pctStyle(int(gs.mean))),
-			card(fmt.Sprintf("%.1f%%", gs.median), "group median "+deltaCell(gs.median-cs.median, ""), pctStyle(int(gs.median))),
-		})
-		b.WriteString(sDim.Render("  details in the Group tab (2)") + "\n")
 	}
-	b.WriteString("\n")
+	// Wrap cards to the available width.
+	var row []string
+	for _, c := range cards {
+		if lipgloss.Width(lipgloss.JoinHorizontal(lipgloss.Top, append(row, c)...)) > w && len(row) > 0 {
+			b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...))
+			b.WriteString("\n")
+			row = nil
+		}
+		row = append(row, c)
+	}
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, row...))
+	b.WriteString("\n\n")
 
 	// Grade histogram.
 	buckets := make([]int, 11)
@@ -131,54 +207,63 @@ func (v *overviewView) View(m *Model, w, h int) string {
 	left := lipgloss.NewStyle().Width(colW).Render(strings.Join(hist, "\n"))
 	right := strings.Join(perDay, "\n")
 	if w >= 2*colW+4 {
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right) + "\n\n")
+		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right))
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(left + "\n\n" + right + "\n\n")
+		b.WriteString(left)
+		b.WriteString("\n\n")
+		b.WriteString(right)
+		b.WriteString("\n\n")
 	}
 
 	// Suspicion summary.
-	b.WriteString(sSectionHdr.Render("Possible cheating") + "\n")
-	g := m.group()
+	// Suspicion summary, limited to the selection in selection mode.
+	in := func(l string) bool { return !v.onlyList || m.inSelection(l) }
+	title := "Possible cheating"
+	if v.onlyList {
+		title += " (selection)"
+	}
+	b.WriteString(sSectionHdr.Render(title))
+	b.WriteString("\n")
 	var risk [3]int
-	for _, r := range m.riskScores() {
-		if r.Score >= 0.5 {
+	for l, r := range m.riskScores() {
+		if in(l) && r.Score >= 0.5 {
 			risk[r.Level()]++
 		}
 	}
-	b.WriteString(fmt.Sprintf("  %s high · %s medium risk: high grade reached at the very start or end of the window, or in one jump\n",
-		sBad.Bold(true).Render(fmt.Sprint(risk[analysis.High])), sWarn.Render(fmt.Sprint(risk[analysis.Medium]))))
+	fmt.Fprintf(&b, "  %s high · %s medium risk: high grade reached at the very start or end of the window, or in one jump\n",
+		sBad.Bold(true).Render(fmt.Sprint(risk[analysis.High])), sWarn.Render(fmt.Sprint(risk[analysis.Medium])))
 	switch {
 	case m.analyzing:
-		b.WriteString("  " + sAccent.Render(fmt.Sprintf("analysing repos %d/%d…", m.anProg.done, m.anProg.total)) + "\n")
+		b.WriteString("  ")
+		b.WriteString(sAccent.Render(fmt.Sprintf("analysing repos %d/%d…", m.anProg.done, m.anProg.total)))
+		b.WriteString("\n")
 	case m.code == nil:
-		b.WriteString("  " + sDim.Render("code not analysed: press A in the Repos tab to clone "+m.classLabel()) + "\n")
+		b.WriteString("  ")
+		b.WriteString(sDim.Render("code not analysed: press A in the Repos tab to clone " + m.classLabel()))
+		b.WriteString("\n")
 	default:
 		var code, ai [3]int
-		inGroup := 0
 		for _, p := range m.codePairs() {
-			code[p.Level()]++
-			if pairInvolves(p.A, p.B, g) {
-				inGroup++
+			if in(p.A) || in(p.B) {
+				code[p.Level()]++
 			}
 		}
-		for _, s := range m.code.AI {
-			if s.Score >= 0.5 {
+		for l, s := range m.code.AI {
+			if in(l) && s.Score >= 0.5 {
 				ai[s.Level()]++
 			}
 		}
-		line := fmt.Sprintf("  %s high · %s medium · %s low pairs sharing code among %d repos",
+		fmt.Fprintf(&b, "  %s high · %s medium · %s low pairs sharing code among %d repos\n",
 			sBad.Bold(true).Render(fmt.Sprint(code[analysis.High])), sWarn.Render(fmt.Sprint(code[analysis.Medium])),
 			sDim.Render(fmt.Sprint(code[analysis.Low])), len(m.code.Repos))
-		if len(g) > 0 {
-			line += fmt.Sprintf(" (%s involve your group)", sAccent.Render(fmt.Sprint(inGroup)))
-		}
-		b.WriteString(line + "\n")
-		b.WriteString(fmt.Sprintf("  %s high · %s medium repos that look AI-generated\n",
-			sBad.Bold(true).Render(fmt.Sprint(ai[analysis.High])), sWarn.Render(fmt.Sprint(ai[analysis.Medium]))))
+		fmt.Fprintf(&b, "  %s high · %s medium repos that look AI-generated\n",
+			sBad.Bold(true).Render(fmt.Sprint(ai[analysis.High])), sWarn.Render(fmt.Sprint(ai[analysis.Medium])))
 	}
-	b.WriteString(sDim.Render("  Ranking sorted by suspicion lists the students to check first; the Code tab lists the pairs") + "\n")
-	if cs.errors > 0 {
-		b.WriteString(fmt.Sprintf("\n  %s last submission errored: %d\n", sBad.Render("●"), cs.errors))
+	b.WriteString(sDim.Render("  Ranking sorted by risk or suspicion lists the students to check first; the Code tab lists the pairs"))
+	b.WriteString("\n")
+	if errors > 0 {
+		fmt.Fprintf(&b, "\n  %s last submission errored: %d\n", sBad.Render("●"), errors)
 	}
 	return b.String()
 }

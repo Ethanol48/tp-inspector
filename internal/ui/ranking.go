@@ -131,7 +131,7 @@ func (v *rankingView) rebuild(m *Model) {
 		if q != "" && !strings.Contains(strings.ToLower(st.Login), q) {
 			continue
 		}
-		if v.onlyList && !m.list[st.Login] && !m.marked[st.Login] {
+		if v.onlyList && !m.inSelection(st.Login) {
 			continue
 		}
 		sus, known := m.suspicionOf(st.Login)
