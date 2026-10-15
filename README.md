@@ -67,10 +67,6 @@ other.student@epita.fr
 
 Those students (plus any you mark with `space`) form **your group**:
 
-- the **Group** tab compares them with the whole promo: mean, median,
-  submitted / missing, average promo percentile, the pass rate of each
-  exercise (worst gap first) and the members who need attention (no
-  submission, errored, bottom 25 % of the promo, suspect);
 - the **Overview** (mean, median, histogram…) starts on them, with the promo
   mean and median next to theirs; `f` switches to the whole promo;
 - Tests adds the group pass rate and the gap with the promo (`s` sorts by gap);
@@ -107,7 +103,7 @@ The first load downloads the submissions and traces of the promo (cached in
 
 | Key                   | Action                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `←/→`, `tab`, `1`–`6` | Switch tab: Overview, Group, Ranking, Tests, Code, Repos                                                           |
+| `←/→`, `tab`, `1`–`5` | Switch tab: Overview, Ranking, Tests, Code, Repos                                                                  |
 | `↑/↓`, `enter`, `esc` | Move, open, go back                                                                                                |
 | `enter` on a student  | Their trace as a tree, their tags, their risk / AI / code signals                                                  |
 | `A` in Repos          | Clone your `--logins` group (else the promotion) and analyse the code (`K` unlocks a passphrase-protected SSH key) |

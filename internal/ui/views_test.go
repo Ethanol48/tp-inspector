@@ -91,7 +91,7 @@ func TestViews(t *testing.T) {
 			t.Errorf("tab %s renders nothing", m.tabs[i].Title())
 		}
 	}
-	m.active = 4 // Code
+	m.active = 3 // Code
 	if out := m.View(); !strings.Contains(out, "alice") || !strings.Contains(out, "find_max") {
 		t.Errorf("Code tab misses the pair:\n%s", out)
 	}

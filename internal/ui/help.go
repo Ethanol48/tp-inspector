@@ -40,7 +40,7 @@ func (v *helpView) View(m *Model, w, h int) string {
 	k := func(key, d string) string { return "  " + sKey.Render(padRight(key, 14)) + d }
 	text := strings.Join([]string{
 		sec("General"),
-		k("←/→ tab 1-6", "switch tab"),
+		k("←/→ tab 1-5", "switch tab"),
 		k("↑/↓", "move; pgup/pgdn, g/G top/bottom"),
 		k("enter", "open details / comparison"),
 		k("esc q", "back / quit"),
@@ -62,9 +62,6 @@ func (v *helpView) View(m *Model, w, h int) string {
 			sDim.Render(" ≥ 80%, ") + sWarn.Render("medium") + sDim.Render(" ≥ 50%, low below."),
 		sec("Overview"),
 		k("f", "statistics of the --logins list + marked students / whole promo"),
-		sec("Group  (--logins list + students marked with space)"),
-		k("t", "section: Members (problems first) · Exercises (worst gap first)"),
-		k("enter / H", "on a member: their detail / history"),
 		sec("Tests / Code"),
 		k("s", "Tests: sort by pass rate, name or group gap (group vs promo)"),
 		k("f", "Code: only pairs with a member of your group / everyone"),
