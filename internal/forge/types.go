@@ -1,6 +1,9 @@
 package forge
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Activity struct {
 	URI        string `json:"uri"`
@@ -64,9 +67,42 @@ type exploreResponse struct {
 	Results   []Submission `json:"results"`
 }
 
+// GitHost is the Forge git server, used when no group remote tells it.
+const GitHost = "git.forge.epita.fr"
+
+// RemoteFromRepository turns a submission's repository path
+// ("/p/<tenant>/<slug>/<group>.git") into an SSH remote, given the
+// "user@host:" prefix of the other remotes.
+func RemoteFromRepository(prefix, repo string) string {
+	return prefix + strings.TrimSuffix(strings.TrimPrefix(repo, "/"), ".git")
+}
+
 type Group struct {
 	URI          string   `json:"uri"`
 	Slug         string   `json:"slug"`
 	Members      []string `json:"members"`
 	GitRemoteURL string   `json:"gitRemoteUrl"`
+}
+
+// Assignment is an assignment with the windows of its submission definitions.
+type Assignment struct {
+	URI         string             `json:"uri"`
+	Slug        string             `json:"slug"`
+	Submissions []SubmissionWindow `json:"submissions"`
+}
+
+// SubmissionWindow is when a submission definition accepts submissions.
+type SubmissionWindow struct {
+	URI          string    `json:"uri"`
+	Slug         string    `json:"slug"`
+	PublishingAt time.Time `json:"publishingAt"`
+	OpeningAt    time.Time `json:"openingAt"`
+	ClosingAt    time.Time `json:"closingAt"`
+	Limit        int       `json:"limit"`
+	LimitType    string    `json:"limitType"`
+}
+
+// Valid reports whether the window has a usable opening and closing time.
+func (w SubmissionWindow) Valid() bool {
+	return !w.OpeningAt.IsZero() && w.ClosingAt.After(w.OpeningAt)
 }

@@ -17,23 +17,22 @@ import (
 
 var detailTabs = []string{"Trace", "Tags", "Suspects"}
 
-// traceSD is the submission definition whose traces are browsed: the graded
-// one ("submit" for TPs, "submission" for exams…); archi traces only check
-// the repository layout.
-func traceSD(m *Model) string { return m.ds.Graded }
-
-// detailView is a student: the graded submit trace, every tag they pushed,
-// then suspicious pairs.
+// detailView is a student: the graded trace (submit for TPs, submission for
+// exams), every tag they pushed, then the signals about them.
 type detailView struct {
 	login  string
 	sub    int
 	gen    int
-	tree   *traceTree // graded trace, nil if none
+	tree   *traceTree // graded trace (submit / submission), nil if none
 	treeOf string     // job id the tree was built for
 	tTags  Table
 	tSus   Table
 	subs   map[string]forge.Submission // row key -> submission
 	pairs  map[string][2]string        // row key -> {other, section}
+	// Set at render, for Keys: the code pair under the cursor in Suspects
+	// and whether the student is marked.
+	selOther string
+	marked   bool
 }
 
 func newDetailView(login string) *detailView { return &detailView{login: login, gen: -1} }
@@ -48,19 +47,30 @@ func (v *detailView) Keys() []string {
 		}
 		return k
 	case 1:
-		return []string{keyHint("enter", "trace of a graded tag"), keyHint("tab", "section")}
+		return []string{keyHint("enter", "trace of a submit / submission tag"), v.markHint(), keyHint("tab", "section"), keyHint("H", "history")}
 	}
-	return []string{keyHint("enter", "compare"), keyHint("tab", "section")}
+	var k []string
+	if v.selOther != "" {
+		k = append(k, keyHint("enter", "compare with "+v.selOther))
+	}
+	return append(k, v.markHint(), keyHint("tab", "section"), keyHint("H", "history"))
+}
+
+func (v *detailView) markHint() string {
+	if v.marked {
+		return keyHint("space", "unmark")
+	}
+	return keyHint("space", "mark (to clone / compare)")
 }
 
 // submitDF returns, for the graded traces of the promo, how many
 // students fail each test and how many traces there are.
 func submitDF(m *Model) (map[string]int, int) {
 	df := map[string]int{}
-	for _, s := range collectTestsFor(m, traceSD(m)) {
+	for _, s := range collectTestsFor(m, m.gradedSD()) {
 		df[s.id] = s.fail
 	}
-	return df, len(m.tracesFor(traceSD(m)))
+	return df, len(m.tracesFor(m.gradedSD()))
 }
 
 // isGraded reports whether sub is the submission that counts for its definition.
@@ -75,10 +85,10 @@ func (v *detailView) rebuild(m *Model) {
 		return
 	}
 	// Keep the tree (and its folding) unless the graded job changed.
-	if p := st.Picked[traceSD(m)]; p != nil && st.Traces[traceSD(m)] != nil {
+	if p := st.Picked[m.gradedSD()]; p != nil && st.Traces[m.gradedSD()] != nil {
 		if v.treeOf != p.CurrentJobID {
 			df, pop := submitDF(m)
-			v.tree, v.treeOf = newTraceTree(st.Traces[traceSD(m)], df, pop), p.CurrentJobID
+			v.tree, v.treeOf = newTraceTree(st.Traces[m.gradedSD()], df, pop), p.CurrentJobID
 		}
 	} else {
 		v.tree, v.treeOf = nil, ""
@@ -106,7 +116,7 @@ func (v *detailView) rebuild(m *Model) {
 		p := s.Percent()
 		cells := []string{graded, s.Ref, sDim.Render(shortSD(s.SubmissionDefinitionURI)),
 			fmtTime(s.ReceivedAt), state, pctCell(p), pctBar(p, 12), author, sDim.Render(s.IP)}
-		if data.SDName(s.SubmissionDefinitionURI) != traceSD(m) {
+		if data.SDName(s.SubmissionDefinitionURI) != m.gradedSD() {
 			// archi tags only check the repository layout: listed, not browsable.
 			for i := range cells {
 				cells[i] = sDim.Render(ansiStrip(cells[i]))
@@ -117,28 +127,42 @@ func (v *detailView) rebuild(m *Model) {
 	v.tTags.Empty = "No submissions."
 	v.tTags.SetRows(rows)
 
-	v.tSus.Cols = []Column{{Title: "Signal", Width: 8}, {Title: "With", Width: 0}, {Title: "Score", Width: 5, Right: true}, {Title: "", Width: 12}}
+	v.tSus.Cols = []Column{{Title: "Signal", Width: 6}, {Title: "Level", Width: 6}, {Title: "With / where", Width: 28}, {Title: "Why", Width: 0}, {Title: "Score", Width: 5, Right: true}}
 	v.pairs = map[string][2]string{}
 	rows = nil
+	if r, ok := m.riskScores()[v.login]; ok {
+		why := strings.Join(r.Reasons, "; ")
+		if why == "" {
+			why = sDim.Render("no timing or jump signal")
+		}
+		rows = append(rows, Row{Key: "risk", Cells: []string{sDim.Render("risk"), levelCell(r.Score), sDim.Render("submissions"), why, sDim.Render(scorePct(r.Score))}})
+	}
+	if s, ok := m.aiOf(v.login); ok {
+		rows = append(rows, Row{Key: "ai", Cells: []string{sDim.Render("AI"), levelCell(s.Score), sDim.Render("whole repo"), s.Reason(), sDim.Render(scorePct(s.Score))}})
+		for i, ff := range s.TopFuncs {
+			rows = append(rows, Row{Key: fmt.Sprint("ai", i), Cells: []string{"", "", sDim.Render(fmt.Sprintf("%s:%d", ff.Func.File, ff.Func.Start)),
+				ff.Func.Name + sDim.Render(" — "+strings.Join(ff.Why, ", ")), ""}})
+		}
+	}
 	type sus struct {
-		kind, other string
-		score       float64
+		other, why string
+		score      float64
 	}
 	var ss []sus
-	for _, p := range m.pairsTraces() {
+	for _, p := range m.codePairs() {
 		if p.A == v.login {
-			ss = append(ss, sus{"traces", p.B, p.Score})
+			ss = append(ss, sus{p.B, p.Reason(), p.Score})
 		} else if p.B == v.login {
-			ss = append(ss, sus{"traces", p.A, p.Score})
+			ss = append(ss, sus{p.A, p.Reason(), p.Score})
 		}
 	}
 	sort.Slice(ss, func(i, j int) bool { return ss[i].score > ss[j].score })
 	for i, s := range ss {
-		key := fmt.Sprint(i)
-		v.pairs[key] = [2]string{s.other, s.kind}
-		rows = append(rows, Row{Key: key, Cells: []string{sDim.Render(s.kind), s.other, scoreCell(s.score), bar(s.score, 12, sAccent)}})
+		key := fmt.Sprint("code", i)
+		v.pairs[key] = [2]string{s.other, "code"}
+		rows = append(rows, Row{Key: key, Cells: []string{sDim.Render("code"), levelCell(s.score), s.other, s.why, sDim.Render(scorePct(s.score))}})
 	}
-	v.tSus.Empty = "No suspicious pair with this student."
+	v.tSus.Empty = "No signal for this student."
 	v.tSus.SetRows(rows)
 }
 
@@ -172,6 +196,14 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		v.sub = (v.sub + len(detailTabs) - 1) % len(detailTabs)
 		return nil
 	}
+	if key == " " {
+		m.marked[v.login] = !m.marked[v.login]
+		m.gen++
+		if m.marked[v.login] {
+			return m.setStatus(v.login + " marked")
+		}
+		return m.setStatus(v.login + " unmarked")
+	}
 	t := []*Table{nil, &v.tTags, &v.tSus}[v.sub]
 	if t.HandleKey(key) {
 		return nil
@@ -184,15 +216,17 @@ func (v *detailView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		if sel == nil {
 			return nil
 		}
-		if data.SDName(v.subs[sel.Key].SubmissionDefinitionURI) != traceSD(m) {
-			return m.setStatus("Traces can only be opened for tags of the graded definition (" + traceSD(m) + ")")
+		if data.SDName(v.subs[sel.Key].SubmissionDefinitionURI) != m.gradedSD() {
+			return m.setStatus("Traces can only be opened for " + m.gradedSD() + " tags")
 		}
 		tv := newTagTraceView(v, sel.Key)
 		m.push(tv)
 		return tv.load(m)
 	}
 	if sel := v.tSus.Selected(); sel != nil {
-		m.push(newCompareView(v.login, v.pairs[sel.Key][0]))
+		if other := v.pairs[sel.Key][0]; other != "" {
+			m.push(newCompareView(v.login, other))
+		}
 	}
 	return nil
 }
@@ -238,17 +272,21 @@ func (v *detailView) View(m *Model, w, h int) string {
 		v.rebuild(m)
 		v.gen = m.gen
 	}
+	v.marked, v.selOther = m.marked[v.login], ""
+	if sel := v.tSus.Selected(); v.sub == 2 && sel != nil {
+		v.selOther = v.pairs[sel.Key][0]
+	}
 	lines := studentHeader(m, st, w)
 	bodyH := h - len(lines) - 3
 	var body string
 	switch v.sub {
 	case 0:
-		last := st.Last(traceSD(m))
+		last := st.Last(m.gradedSD())
 		switch {
 		case v.tree == nil:
-			body = "\n  " + sDim.Render("No graded trace ("+traceSD(m)+") for this student.")
+			body = "\n  " + sDim.Render("No graded "+m.gradedSD()+" trace for this student.")
 		default:
-			label := traceSD(m)
+			label := m.gradedSD()
 			if last != nil {
 				label = fmt.Sprintf("%s · %s · graded", last.Ref, fmtTime(last.ReceivedAt))
 			}
@@ -259,9 +297,27 @@ func (v *detailView) View(m *Model, w, h int) string {
 			body = sDim.Render(label) + "\n" + v.tree.View(pct, w, bodyH-1)
 		}
 	case 1:
-		body = v.tTags.View(w, bodyH-1) + "\n" + sDim.Render("  ★ graded submission · enter opens the trace of a "+traceSD(m)+" tag (dimmed tags, e.g. archi, are not browsable)")
+		body = v.tTags.View(w, bodyH-1) + "\n" + sDim.Render("  ★ graded submission · enter opens the trace of a "+m.gradedSD()+" tag (archi tags only check the repository layout: not browsable)")
 	default:
-		body = v.tSus.View(w, bodyH)
+		var expl []string
+		if sel := v.tSus.Selected(); sel != nil {
+			switch {
+			case sel.Key == "risk":
+				expl = riskLines(m, m.riskScores()[v.login])
+			case strings.HasPrefix(sel.Key, "ai"):
+				if s, ok := m.aiOf(v.login); ok {
+					expl = aiLines(s)
+				}
+			}
+		}
+		if m.code == nil || m.code.Repos[v.login] == nil {
+			expl = append(expl, sDim.Render("Repo not analysed: clone it in the Repos tab to check shared and generated code."))
+		}
+		tail := ""
+		if len(expl) > 0 {
+			tail = "\n\n" + lipgloss.NewStyle().MaxWidth(w).Render(strings.Join(expl, "\n"))
+		}
+		body = v.tSus.View(w, max(3, bodyH-strings.Count(tail, "\n"))) + tail
 	}
 	return strings.Join(lines, "\n") + "\n\n" + renderTabs(detailTabs, v.sub) + "\n" + body
 }
@@ -288,7 +344,7 @@ func (v *tagTraceView) submission() forge.Submission { return v.parent.subs[v.su
 func (v *tagTraceView) Title() string { return v.submission().Ref }
 
 func (v *tagTraceView) Keys() []string {
-	k := []string{keyHint("[/]", "older/newer tag")}
+	k := []string{keyHint("[/]", "older/newer graded tag")}
 	if v.tree != nil {
 		k = append(k, v.tree.keys()...)
 	}
@@ -297,7 +353,7 @@ func (v *tagTraceView) Keys() []string {
 
 func (v *tagTraceView) load(m *Model) tea.Cmd { return m.fetchJobTrace(v.submission()) }
 
-// step moves to the older (+1) or newer (-1) submit tag of the list.
+// step moves to the older (+1) or newer (-1) graded-definition tag of the list.
 // Only that one trace is fetched, and only if it is not cached.
 func (v *tagTraceView) step(m *Model, d int) tea.Cmd {
 	rows := v.parent.tTags.Rows
@@ -306,7 +362,7 @@ func (v *tagTraceView) step(m *Model, d int) tea.Cmd {
 			continue
 		}
 		for j := i + d; j >= 0 && j < len(rows); j += d {
-			if data.SDName(v.parent.subs[rows[j].Key].SubmissionDefinitionURI) == traceSD(m) {
+			if data.SDName(v.parent.subs[rows[j].Key].SubmissionDefinitionURI) == m.gradedSD() {
 				v.subID = rows[j].Key
 				v.parent.tTags.cursor = j
 				v.tree, v.treeOf = nil, ""

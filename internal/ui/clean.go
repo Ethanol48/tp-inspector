@@ -173,12 +173,19 @@ func (c *CleanModel) View() string {
 		total += it.bytes
 	}
 	var b strings.Builder
-	b.WriteString(" " + sTitle.Render("tpi clean") + sDim.Render(fmt.Sprintf(" · %s · %s cached", c.root, data.HumanBytes(total))) + "\n\n")
+	b.WriteString(" ")
+	b.WriteString(sTitle.Render("tpi clean"))
+	b.WriteString(sDim.Render(fmt.Sprintf(" · %s · %s cached", c.root, data.HumanBytes(total))))
+	b.WriteString("\n\n")
 	if c.err != nil {
-		b.WriteString(" " + sBad.Render(c.err.Error()) + "\n")
+		b.WriteString(" ")
+		b.WriteString(sBad.Render(c.err.Error()))
+		b.WriteString("\n")
 	}
 	if len(c.items) == 0 {
-		b.WriteString(" " + sDim.Render("The cache is empty.") + "\n")
+		b.WriteString(" ")
+		b.WriteString(sDim.Render("The cache is empty."))
+		b.WriteString("\n")
 	}
 	lastSlug := ""
 	for i, it := range c.items {
@@ -186,7 +193,9 @@ func (c *CleanModel) View() string {
 			if lastSlug != "" {
 				b.WriteString("\n")
 			}
-			b.WriteString(" " + sBold.Render(it.slug) + "\n")
+			b.WriteString(" ")
+			b.WriteString(sBold.Render(it.slug))
+			b.WriteString("\n")
 			lastSlug = it.slug
 		}
 		prefix := "  "
@@ -202,22 +211,28 @@ func (c *CleanModel) View() string {
 			kind = "repos"
 		}
 		line := fmt.Sprintf(" %s%s %-8s %8s  %s", prefix, box, kind, data.HumanBytes(it.bytes), sDim.Render(it.detail))
-		b.WriteString(lipgloss.NewStyle().MaxWidth(c.w).Render(line) + "\n")
+		b.WriteString(lipgloss.NewStyle().MaxWidth(c.w).Render(line))
+		b.WriteString("\n")
 	}
 	b.WriteString("\n")
 	switch {
 	case c.confirm:
 		n, bytes := c.selected()
-		b.WriteString(" " + sBad.Bold(true).Render(fmt.Sprintf("Delete %d item(s), %s? ", n, data.HumanBytes(bytes))) +
-			keyHint("y", "yes") + sDim.Render(" · any other key cancels"))
+		b.WriteString(" ")
+		b.WriteString(sBad.Bold(true).Render(fmt.Sprintf("Delete %d item(s), %s? ", n, data.HumanBytes(bytes))))
+		b.WriteString(keyHint("y", "yes"))
+		b.WriteString(sDim.Render(" · any other key cancels"))
 	case c.status != "":
-		b.WriteString(" " + sAccent.Render(c.status))
+		b.WriteString(" ")
+		b.WriteString(sAccent.Render(c.status))
 	default:
 		n, bytes := c.selected()
 		hints := []string{keyHint("space", "select"), keyHint("a", "all"), keyHint("r", "all repos"),
 			keyHint("n", "none"), keyHint("d", fmt.Sprintf("delete (%d, %s)", n, data.HumanBytes(bytes))), keyHint("q", "quit")}
-		b.WriteString(" " + strings.Join(hints, sDim.Render(" · ")))
+		b.WriteString(" ")
+		b.WriteString(strings.Join(hints, sDim.Render(" · ")))
 	}
-	b.WriteString("\n\n " + sDim.Render("TP data = cached API responses and traces (downloaded again on next run). Your login and settings are kept."))
+	b.WriteString("\n\n ")
+	b.WriteString(sDim.Render("TP data = cached API responses and traces (downloaded again on next run). Your login and settings are kept."))
 	return b.String()
 }

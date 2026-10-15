@@ -36,9 +36,22 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("git %s: %v: %s", args[0], err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("git %s: %v: %s", args[0], err, gitMessage(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// gitMessage keeps the useful part of git's output: ssh banners such as
+// "** WARNING: connection is not using a post-quantum key exchange" come
+// before the actual error and hide it in a one-line status.
+func gitMessage(out string) string {
+	var keep []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "**") {
+			keep = append(keep, l)
+		}
+	}
+	return strings.Join(keep, " / ")
 }
 
 // Sync makes dir a checkout of t.Ref, cloning or fetching only when needed.
@@ -62,7 +75,7 @@ func Sync(ctx context.Context, dir string, t Target) error {
 			return err
 		}
 		if target, err = git(ctx, dir, "rev-parse", "-q", "--verify", want); err != nil {
-			return fmt.Errorf("tag %s no encontrado", t.Ref)
+			return fmt.Errorf("tag %s not found in the repository", t.Ref)
 		}
 	}
 	// A --no-checkout clone has HEAD set but an empty work tree.
@@ -119,4 +132,58 @@ func Inspect(dir string) (ref, commit string, err error) {
 	}
 	ref, _ = git(ctx, dir, "describe", "--tags", "--exact-match", "HEAD")
 	return ref, commit, nil
+}
+
+// Commit is one commit of a checkout's history, oldest first in Log.
+type Commit struct {
+	Hash      string
+	Time      time.Time
+	Author    string // "name <email>"
+	Committer string
+	Subject   string
+	Body      string // rest of the message, trailers included
+	Added     int    // lines added to C / Python sources
+	Deleted   int
+}
+
+// sourceExt are the files whose lines count in Commit.Added.
+var sourceExt = map[string]bool{".c": true, ".h": true, ".py": true}
+
+// Log returns the history leading to HEAD (the checked-out tag), oldest
+// first, without merges.
+func Log(dir string) ([]Commit, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// Fields are separated by \x1f and the message ends with \x1e, since
+	// bodies span lines; numstat lines follow.
+	out, err := git(ctx, dir, "log", "--no-merges", "--reverse", "--numstat",
+		"--format=%x00%H%x1f%ct%x1f%an <%ae>%x1f%cn <%ce>%x1f%s%x1f%b%x1e", "HEAD")
+	if err != nil {
+		return nil, err
+	}
+	var cs []Commit
+	for _, block := range strings.Split(out, "\x00") {
+		msg, stats, _ := strings.Cut(block, "\x1e")
+		f := strings.SplitN(msg, "\x1f", 6)
+		if len(f) < 6 {
+			continue
+		}
+		var ts int64
+		fmt.Sscan(f[1], &ts)
+		c := Commit{Hash: f[0], Time: time.Unix(ts, 0), Author: f[2], Committer: f[3],
+			Subject: f[4], Body: strings.TrimSpace(f[5])}
+		for _, l := range strings.Split(strings.TrimSpace(stats), "\n") {
+			n := strings.SplitN(l, "\t", 3)
+			if len(n) < 3 || !sourceExt[strings.ToLower(filepath.Ext(n[2]))] {
+				continue // binary ("-") or not source
+			}
+			var a, d int
+			fmt.Sscan(n[0], &a)
+			fmt.Sscan(n[1], &d)
+			c.Added += a
+			c.Deleted += d
+		}
+		cs = append(cs, c)
+	}
+	return cs, nil
 }

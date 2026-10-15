@@ -50,13 +50,14 @@ func newTraceTree(tr *trace.Trace, df map[string]int, pop int) *traceTree {
 			continue
 		}
 		parent := root
-		key := ""
-		for _, part := range strings.Split(t.Class, ".") {
-			key += "." + part
-			n := byKey[key]
+		var key strings.Builder
+		for part := range strings.SplitSeq(t.Class, ".") {
+			key.WriteString(".")
+			key.WriteString(part)
+			n := byKey[key.String()]
 			if n == nil {
-				n = &treeNode{name: part, key: key, depth: parent.depth + 1, parent: parent}
-				byKey[key] = n
+				n = &treeNode{name: part, key: key.String(), depth: parent.depth + 1, parent: parent}
+				byKey[key.String()] = n
 				parent.children = append(parent.children, n)
 			}
 			parent = n

@@ -9,19 +9,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"tp-inspector/internal/analysis"
 	"tp-inspector/internal/data"
-	"tp-inspector/internal/trace"
 )
 
-var compareTabs = []string{"Traces", "History"}
+var compareTabs = []string{"Code", "History"}
 
 type compareView struct {
 	a, b    string
 	sub     int
 	gen     int
-	tTraces Table
+	tCode   Table
 	tHist   Table
-	msgs    map[string][2]string
+	pair    *analysis.CodePair // nil when they share no code
+	matches map[string]analysis.FuncMatch
 }
 
 func newCompareView(a, b string) *compareView {
@@ -36,93 +37,45 @@ func (v *compareView) Keys() []string {
 
 func (v *compareView) rebuild(m *Model) {
 	sa, sb := m.student(v.a), m.student(v.b)
-	var ta, tb *trace.Trace
-	if sa != nil {
-		ta = sa.Traces[m.sd]
-	}
-	if sb != nil {
-		tb = sb.Traces[m.sd]
-	}
 
-	// Traces: tests failed by at least one of them.
-	df := map[string]int{}
-	for _, s := range collectTests(m) {
-		df[s.id] = s.fail
-	}
-	type row struct {
-		id           string
-		fa, fb, same bool
-	}
-	byID := map[string]*row{}
-	v.msgs = map[string][2]string{}
-	add := func(t *trace.Trace, isA bool) {
-		if t == nil {
-			return
-		}
-		for _, x := range t.Tests {
-			if x.Passed || x.Skipped {
-				continue
-			}
-			r := byID[x.ID]
-			if r == nil {
-				r = &row{id: x.ID}
-				byID[x.ID] = r
-			}
-			msgs := v.msgs[x.ID]
-			if isA {
-				r.fa, msgs[0] = true, x.Message
-			} else {
-				r.fb, msgs[1] = true, x.Message
-			}
-			v.msgs[x.ID] = msgs
+	// Code: their matched functions, best first.
+	v.pair, v.matches = nil, map[string]analysis.FuncMatch{}
+	for _, p := range m.codePairs() {
+		if p.A == v.a && p.B == v.b || p.A == v.b && p.B == v.a {
+			p := p
+			v.pair = &p
 		}
 	}
-	add(ta, true)
-	add(tb, false)
-	var rs []*row
-	for _, r := range byID {
-		r.same = r.fa && r.fb && v.msgs[r.id][0] == v.msgs[r.id][1]
-		rs = append(rs, r)
-	}
-	sort.Slice(rs, func(i, j int) bool {
-		bi, bj := rs[i].fa && rs[i].fb, rs[j].fa && rs[j].fb
-		if bi != bj {
-			return bi
-		}
-		if df[rs[i].id] != df[rs[j].id] {
-			return df[rs[i].id] < df[rs[j].id]
-		}
-		return rs[i].id < rs[j].id
-	})
-	mark := func(failed bool) string {
-		if failed {
-			return sBad.Render("✗")
-		}
-		return sGood.Render("✓")
-	}
-	v.tTraces.Cols = []Column{{Title: "Test", Width: 0}, {Title: "A", Width: 1}, {Title: "B", Width: 1},
-		{Title: "Failed by", Width: 9, Right: true}, {Title: "Output", Width: 12}}
+	v.tCode.Cols = []Column{{Title: "Function of A", Width: 48}, {Title: "Function of B", Width: 0},
+		{Title: "Alike", Width: 5, Right: true}, {Title: "", Width: 9}, {Title: "Tokens", Width: 6, Right: true}}
 	var rows []Row
-	for _, r := range rs {
-		same := ""
-		switch {
-		case r.same:
-			same = sBad.Bold(true).Render("identical")
-		case r.fa && r.fb:
-			same = sDim.Render("different")
+	if v.pair != nil {
+		for i, mt := range v.pair.Matches {
+			fa, fb := mt.A, mt.B
+			if v.pair.A != v.a { // the pair is stored in login order
+				fa, fb = fb, fa
+			}
+			key := fmt.Sprint(i)
+			v.matches[key] = analysis.FuncMatch{A: fa, B: fb, Sim: mt.Sim, Tokens: mt.Tokens, Identical: mt.Identical}
+			loc := func(f *analysis.Func) string {
+				return f.Name + sDim.Render(fmt.Sprintf("  %s:%d", f.File, f.Start))
+			}
+			same := sDim.Render("renamed")
+			if mt.Identical {
+				same = sBad.Bold(true).Render("identical")
+			}
+			rows = append(rows, Row{Key: key, Cells: []string{loc(fa), loc(fb), scorePct(mt.Sim), same, sDim.Render(fmt.Sprint(mt.Tokens))}})
 		}
-		cls := r.id
-		if i := strings.Index(cls, "::"); i >= 0 {
-			c := cls[:i]
-			cls = c[strings.LastIndex(c, ".")+1:] + sDim.Render(" › ") + cls[i+2:]
-		}
-		rows = append(rows, Row{Key: r.id, Cells: []string{cls, mark(r.fa), mark(r.fb), fmt.Sprint(df[r.id]), same}})
 	}
-	v.tTraces.Empty = "Neither of them fails any test."
-	if ta == nil || tb == nil {
-		v.tTraces.Empty = "One of them has no trace in " + m.sd + "."
+	switch {
+	case m.code == nil:
+		v.tCode.Empty = "Repos not analysed: clone them in the Repos tab (A for " + m.classLabel() + ")."
+	case m.code.Repos[v.a] == nil || m.code.Repos[v.b] == nil:
+		v.tCode.Empty = "One of them has no repo on disk: clone it in the Repos tab."
+	default:
+		v.tCode.Empty = "No function alike between their repos."
 	}
-	v.tTraces.SetRows(rows)
+	v.tCode.SetRows(rows)
 
 	// History: A's tags then B's, each newest first, with the time to the
 	// closest submission of the other student.
@@ -191,7 +144,7 @@ func (v *compareView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 		m.push(newDetailView(v.b))
 		return nil
 	}
-	t := []*Table{&v.tTraces, &v.tHist}[v.sub]
+	t := []*Table{&v.tCode, &v.tHist}[v.sub]
 	if t.HandleKey(k.String()) {
 		return nil
 	}
@@ -236,9 +189,21 @@ func (v *compareView) View(m *Model, w, h int) string {
 
 	// Pair-level signals.
 	var sig []string
-	for _, p := range m.pairsTraces() {
-		if p.A == v.a && p.B == v.b || p.A == v.b && p.B == v.a {
-			sig = append(sig, "traces "+scoreCell(p.Score))
+	why := ""
+	if v.pair != nil {
+		sig = append(sig, "code: "+levelCell(v.pair.Score)+sDim.Render(" — ")+v.pair.Reason())
+		why = "\n" + lipgloss.NewStyle().MaxWidth(w).Render(strings.Join(codeWhyLines(*v.pair), "\n"))
+	}
+	for _, side := range []struct{ tag, login string }{{"A", v.a}, {"B", v.b}} {
+		var parts []string
+		if r := m.riskScores()[side.login]; r.Score > 0 {
+			parts = append(parts, "risk "+levelCell(r.Score))
+		}
+		if s, ok := m.aiOf(side.login); ok {
+			parts = append(parts, "AI "+levelCell(s.Score))
+		}
+		if len(parts) > 0 {
+			sig = append(sig, side.tag+": "+strings.Join(parts, " "))
 		}
 	}
 	ia, ib := ipsOf(m.student(v.a)), ipsOf(m.student(v.b))
@@ -255,24 +220,29 @@ func (v *compareView) View(m *Model, w, h int) string {
 	if len(sig) == 0 {
 		sig = append(sig, sDim.Render("no signals"))
 	}
-	head += "\n" + strings.Join(sig, sDim.Render("  ·  "))
+	head += "\n" + strings.Join(sig, sDim.Render("  ·  ")) + why
 
 	body := ""
-	bodyH := h - 5
+	bodyH := h - 5 - strings.Count(why, "\n")
 	switch v.sub {
 	case 0:
-		panelH := 4
-		body = v.tTraces.View(w, bodyH-panelH)
-		if sel := v.tTraces.Selected(); sel != nil {
-			ms := v.msgs[sel.Key]
-			fmtMsg := func(s string) string {
-				if s == "" {
-					return sGood.Render("passes")
+		listH := min(len(v.tCode.Rows)+2, max(4, bodyH/3))
+		body = v.tCode.View(w, listH)
+		if sel := v.tCode.Selected(); sel != nil {
+			mt := v.matches[sel.Key]
+			codeH := bodyH - listH - 2
+			half := (w - 3) / 2
+			pane := func(label string, style lipgloss.Style, f *analysis.Func) string {
+				lines := strings.Split(strings.ReplaceAll(f.Raw, "\t", "    "), "\n")
+				if len(lines) > codeH {
+					lines = append(lines[:max(0, codeH-1)], sDim.Render(fmt.Sprintf("… %d more lines", len(lines)-codeH+1)))
 				}
-				return s
+				title := style.Render(label+" ") + sBold.Render(f.Name) + sDim.Render(fmt.Sprintf(" %s:%d-%d", f.File, f.Start, f.End))
+				return lipgloss.NewStyle().Width(half).MaxWidth(half).Render(title + "\n" + strings.Join(lines, "\n"))
 			}
-			body += "\n" + lipgloss.NewStyle().MaxWidth(w).Render(
-				sAccent.Render("A ")+fmtMsg(ms[0])+"\n"+sWarn.Render("B ")+fmtMsg(ms[1]))
+			if codeH > 2 {
+				body += "\n\n" + lipgloss.JoinHorizontal(lipgloss.Top, pane("A", sAccent, mt.A), sDim.Render(" │ "), pane("B", sWarn, mt.B))
+			}
 		}
 	case 1:
 		body = v.tHist.View(w, bodyH)

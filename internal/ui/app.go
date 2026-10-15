@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -45,7 +46,20 @@ type loadedMsg struct {
 
 type cloneProgressMsg struct{ done, total int }
 
-type cloneDoneMsg struct{ results []repos.Result }
+type cloneDoneMsg struct {
+	results  []repos.Result
+	authErr  error // nothing cloned: SSH refused the key
+	checkErr error // nothing cloned: the first repo could not be reached
+}
+
+type sshUnlockedMsg struct{ err error }
+
+type analysisProgressMsg struct{ done, total int }
+
+type analysisDoneMsg struct {
+	res *analysis.CodeResult
+	key string
+}
 
 type statusClearMsg struct{ id int }
 
@@ -70,12 +84,22 @@ type Model struct {
 	marked map[string]bool // selected by hand with space in Ranking
 	list   map[string]bool // logins from --logins
 
-	tracePairs map[string][]analysis.TracePair
-	suspicion  map[string]map[string][2]float64 // sd -> login -> {traces, code}
+	risks map[string]map[string]analysis.RiskScore // sd -> login -> risk
+
+	code      *analysis.CodeResult // code similarity and AI heuristics of the repos on disk
+	codeBest  map[string]float64   // login -> best code pair score
+	codeKey   string               // repos (login@commit) code was computed for
+	analyzing bool
+	anProg    analysisProgressMsg
+	anEvents  chan tea.Msg
 
 	clones    map[string]repos.Result // login -> last clone result
 	cloning   bool
 	cloneProg cloneProgressMsg
+	sshLocked bool     // the last clone failed on SSH authentication
+	cloneErr  string   // why the last clone failed, shown in Repos until the next one
+	pending   []string // logins to clone once the SSH key is unlocked
+	agentPID  int      // ssh-agent started by tpi, stopped on exit
 
 	status   string
 	statusID int
@@ -111,7 +135,7 @@ func (m *Model) fetchJobTrace(sub forge.Submission) tea.Cmd {
 // New creates the model; call Run to start it.
 func New(slug tp.Slug, loader *data.Loader, list []string) *Model {
 	m := &Model{slug: slug, loader: loader, marked: map[string]bool{}, list: map[string]bool{},
-		tracePairs: map[string][]analysis.TracePair{}, suspicion: map[string]map[string][2]float64{},
+		risks: map[string]map[string]analysis.RiskScore{}, codeBest: map[string]float64{},
 		clones:    map[string]repos.Result{},
 		jobTraces: map[string]*trace.Trace{}, jobErrs: map[string]error{}, jobBusy: map[string]bool{}}
 	for _, l := range list {
@@ -119,7 +143,7 @@ func New(slug tp.Slug, loader *data.Loader, list []string) *Model {
 	}
 	rv := newRankingView()
 	rv.onlyList = len(list) > 0
-	m.tabs = []view{&overviewView{onlyList: len(list) > 0}, rv, &testsView{}, &tracesView{}, &reposView{}}
+	m.tabs = []view{&overviewView{onlyList: len(list) > 0}, rv, &testsView{}, &codeView{onlyGroup: true}, &reposView{}}
 	return m
 }
 
@@ -129,6 +153,7 @@ func (m *Model) inSelection(login string) bool { return m.list[login] || m.marke
 // Run starts the program.
 func Run(m *Model) error {
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	repos.StopAgent(m.agentPID)
 	return err
 }
 
@@ -184,10 +209,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.sd == "" || m.ds.SDURIs[m.sd] == "" {
 				m.sd = m.ds.SDs[0]
 			}
-			m.tracePairs = map[string][]analysis.TracePair{}
-			m.suspicion = map[string]map[string][2]float64{}
+			m.risks = map[string]map[string]analysis.RiskScore{}
 			m.stack = nil
 			m.gen++
+			analyze := m.startAnalysis() // repos cloned in earlier runs
 			var unknown []string
 			for l := range m.list {
 				if m.student(l) == nil {
@@ -196,11 +221,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if len(unknown) > 0 {
 				sort.Strings(unknown)
-				return m, m.setStatus(fmt.Sprintf("%d logins from the list are not in this assignment: %s", len(unknown), strings.Join(unknown, ", ")))
+				return m, tea.Batch(analyze, m.setStatus(fmt.Sprintf("%d logins from the list are not in this assignment: %s", len(unknown), strings.Join(unknown, ", "))))
 			}
 			if n := len(m.ds.Warnings); n > 0 {
-				return m, m.setStatus(fmt.Sprintf("%d warnings while loading (e.g. %s)", n, m.ds.Warnings[0]))
+				return m, tea.Batch(analyze, m.setStatus(fmt.Sprintf("%d warnings while loading (e.g. %s)", n, m.ds.Warnings[0])))
 			}
+			return m, analyze
 		}
 		return m, nil
 	case jobTraceMsg:
@@ -221,18 +247,64 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.listen()
 	case cloneDoneMsg:
 		m.cloning = false
-		failed := 0
+		if msg.authErr != nil {
+			m.sshLocked = true
+			m.gen++
+			return m, m.setStatus("SSH refused your key (locked by a passphrase?): press K in Repos to unlock it, then clone again")
+		}
+		if msg.checkErr != nil {
+			m.cloneErr = "Nothing cloned, the first repo cannot be reached: " + msg.checkErr.Error()
+			m.gen++
+			return m, m.setStatus("Nothing cloned: see the error in the Repos tab")
+		}
+		failed, auth := 0, 0
 		for _, r := range msg.results {
 			m.clones[r.Login] = r
 			if r.Err != nil {
+				if failed == 0 {
+					m.cloneErr = fmt.Sprintf("%%d of %d clones failed, e.g. %s (%s): %v", len(msg.results), r.Login, r.Remote, r.Err)
+				}
 				failed++
+				if repos.IsAuthError(r.Err) {
+					auth++
+				}
 			}
 		}
-		m.gen++
 		if failed > 0 {
-			return m, m.setStatus(fmt.Sprintf("Cloned %d repos, %d failed", len(msg.results)-failed, failed))
+			m.cloneErr = fmt.Sprintf(m.cloneErr, failed)
 		}
-		return m, m.setStatus(fmt.Sprintf("Cloned %d repos into %s", len(msg.results), m.repoRoot()))
+		m.sshLocked = auth > 0
+		m.pending = nil
+		m.gen++
+		analyze := m.startAnalysis()
+		if failed > 0 {
+			return m, tea.Batch(analyze, m.setStatus(fmt.Sprintf("Cloned %d repos, %d failed", len(msg.results)-failed, failed)))
+		}
+		return m, tea.Batch(analyze, m.setStatus(fmt.Sprintf("Cloned %d repos into %s", len(msg.results), m.repoRoot())))
+	case sshUnlockedMsg:
+		if msg.err != nil {
+			m.sshLocked = true
+			m.gen++
+			return m, m.setStatus("SSH key not unlocked (wrong passphrase?): press K in Repos to try again")
+		}
+		m.sshLocked = false
+		m.gen++
+		if len(m.pending) > 0 {
+			logins := m.pending
+			m.pending = nil
+			return m, tea.Batch(m.startClone(logins), m.setStatus("SSH key unlocked, cloning"))
+		}
+		return m, m.setStatus("SSH key unlocked")
+	case analysisProgressMsg:
+		m.anProg = msg
+		return m, m.listenAnalysis()
+	case analysisDoneMsg:
+		m.analyzing = false
+		m.code, m.codeKey, m.codeBest = msg.res, msg.key, msg.res.Best()
+		m.gen++
+		// Repos may have changed while analysing.
+		next := m.startAnalysis()
+		return m, tea.Batch(next, m.setStatus(fmt.Sprintf("Code analysed: %d repos, %d pairs sharing code", len(msg.res.Repos), len(msg.res.Pairs))))
 	case tea.KeyMsg:
 		return m, m.handleKey(msg)
 	}
@@ -393,13 +465,20 @@ func (m *Model) View() string {
 	bodyLines := strings.Count(body, "\n") + 1
 
 	var b strings.Builder
-	b.WriteString(" " + header + "\n")
-	b.WriteString(" " + nav + "\n\n")
-	for _, l := range strings.Split(body, "\n") {
-		b.WriteString(" " + l + "\n")
+	b.WriteString(" ")
+	b.WriteString(header)
+	b.WriteString("\n")
+	b.WriteString(" ")
+	b.WriteString(nav)
+	b.WriteString("\n\n")
+	for l := range strings.SplitSeq(body, "\n") {
+		b.WriteString(" ")
+		b.WriteString(l)
+		b.WriteString("\n")
 	}
 	b.WriteString(strings.Repeat("\n", max(0, bodyH-bodyLines)))
-	b.WriteString(" " + lipgloss.NewStyle().MaxWidth(m.w-2).Render(footer))
+	b.WriteString(" ")
+	b.WriteString(lipgloss.NewStyle().MaxWidth(m.w - 2).Render(footer))
 	return b.String()
 }
 
@@ -468,38 +547,75 @@ func (m *Model) student(login string) *data.Student {
 	return nil
 }
 
-func (m *Model) pairsTraces() []analysis.TracePair {
-	if p, ok := m.tracePairs[m.sd]; ok {
-		return p
+// riskScores returns the risk of every student for the current definition.
+func (m *Model) riskScores() map[string]analysis.RiskScore {
+	if r, ok := m.risks[m.sd]; ok {
+		return r
 	}
-	p := analysis.CompareTraces(m.traces(), analysis.TraceOptions{})
-	m.tracePairs[m.sd] = p
-	return p
+	r := analysis.Risk(m.ds.Students, m.sd, m.window())
+	m.risks[m.sd] = r
+	return r
 }
 
-// suspicionOf returns the best trace similarity score of pairs involving login.
-func (m *Model) suspicionOf(login string) float64 {
-	s, ok := m.suspicion[m.sd]
-	if !ok {
-		s = map[string][2]float64{}
-		for _, p := range m.pairsTraces() {
-			for _, l := range []string{p.A, p.B} {
-				if cur := s[l]; p.Score > cur[0] {
-					s[l] = [2]float64{p.Score, 0}
-				}
-			}
-		}
-		m.suspicion[m.sd] = s
+// window is the reference period of the timing signal for the current definition.
+func (m *Model) window() analysis.Window {
+	return analysis.WindowFor(m.ds.Students, m.sd, m.ds.Window(m.sd))
+}
+
+func (m *Model) riskOf(login string) float64 { return m.riskScores()[login].Score }
+
+// aiOf returns the AI score of a student's repo, 0 when not analysed.
+func (m *Model) aiOf(login string) (analysis.AIScore, bool) {
+	if m.code == nil {
+		return analysis.AIScore{}, false
 	}
-	return s[login][0]
+	s, ok := m.code.AI[login]
+	return s, ok
+}
+
+// codePairs returns the pairs of repos sharing code (none before analysis).
+func (m *Model) codePairs() []analysis.CodePair {
+	if m.code == nil {
+		return nil
+	}
+	return m.code.Pairs
+}
+
+// suspicionOf combines the risk, best code pair and AI scores as independent
+// evidence: 1 − (1−risk)(1−code)(1−AI). Each signal raises it, several
+// together more than any alone. It is unknown (false) until the student's
+// repo has been analysed: before that it would only repeat the risk.
+func (m *Model) suspicionOf(login string) (float64, bool) {
+	if m.code == nil || m.code.Repos[login] == nil {
+		return 0, false
+	}
+	ai, _ := m.aiOf(login)
+	return combine(m.riskOf(login), m.codeBest[login], ai.Score), true
+}
+
+// suspicionCell renders the suspicion level, "·" while unknown.
+func suspicionCell(m *Model, login string) string {
+	s, ok := m.suspicionOf(login)
+	if !ok {
+		return sDim.Render("·")
+	}
+	return levelCell(s)
+}
+
+func combine(scores ...float64) float64 {
+	rest := 1.0
+	for _, s := range scores {
+		rest *= 1 - s
+	}
+	return 1 - rest
 }
 
 func (m *Model) repoRoot() string {
 	return filepath.Join(m.loader.Cache.Root, m.ds.Activity.Slug, "repos")
 }
 
-// cloneSelection returns the students marked by hand in Ranking: the only
-// repos ever cloned (never the whole promo, nor the whole --logins list).
+// cloneSelection returns the students marked by hand in Ranking, cloned
+// with a; A clones the class (classToClone).
 func (m *Model) cloneSelection() []string {
 	var out []string
 	for l, ok := range m.marked {
@@ -540,17 +656,81 @@ func (m *Model) repoLogins() []string {
 	return out
 }
 
-// startClone clones or updates the marked repos at the tag of their graded
-// submit submission.
-func (m *Model) startClone() tea.Cmd {
+// classLabel names what A clones.
+func (m *Model) classLabel() string {
+	if len(m.list) > 0 {
+		return "your group (--logins + marked)"
+	}
+	return "the whole promotion"
+}
+
+// gradedSD is the definition that runs the testsuite: its traces are the
+// ones browsed in a student's page and its graded tag is the one cloned
+// ("submit" for TPs, "submission" for exams).
+func (m *Model) gradedSD() string { return m.ds.GradedSD() }
+
+// nothingToClone explains why A found nobody to clone.
+func (m *Model) nothingToClone() string {
+	sd := m.gradedSD()
+	who := m.ds.Students
+	if len(m.list) > 0 {
+		who = m.groupStudents()
+		if len(who) == 0 {
+			return "None of the --logins students is in this assignment"
+		}
+	}
+	pushed, other, remote := 0, 0, 0
+	for _, st := range who {
+		if st.Last(sd) != nil {
+			pushed++
+		} else if len(st.Subs) > 0 {
+			other++
+		}
+		if st.Group.GitRemoteURL != "" {
+			remote++
+		}
+	}
+	switch {
+	case pushed == 0 && other > 0:
+		return fmt.Sprintf("Nobody has pushed a %s-* tag yet (only other tags such as archi-*, which only check the structure)", sd)
+	case pushed == 0:
+		return "Nobody has pushed anything yet"
+	case remote == 0:
+		return "No git remote known for these students (no groups and no repository in their submissions)"
+	}
+	return "Nobody has a graded " + sd + " to clone"
+}
+
+// classToClone returns the students A clones, those with a graded
+// submission: the --logins list plus the marked students, or the whole
+// promotion without a list.
+func (m *Model) classToClone() []string {
+	var out []string
+	sd := m.gradedSD()
+	g := m.group()
+	for _, st := range m.ds.Students {
+		if len(m.list) > 0 && !g[st.Login] {
+			continue
+		}
+		if last := st.Last(sd); last != nil && last.Ref != "" && st.Group.GitRemoteURL != "" {
+			out = append(out, st.Login)
+		}
+	}
+	return out
+}
+
+// startClone clones or updates repos at the tag of their graded submission
+// (submit-* for TPs, submission-* for exams).
+func (m *Model) startClone(logins []string) tea.Cmd {
 	if m.cloning {
 		return nil
 	}
 	var targets []repos.Target
 	var skipped []string
-	for _, l := range m.cloneSelection() {
+	sd := m.gradedSD()
+	for _, l := range logins {
 		st := m.student(l)
-		last := st.Last(m.ds.Graded)
+		last := st.Last(sd)
 		if last == nil || last.Ref == "" || st.Group.GitRemoteURL == "" {
 			skipped = append(skipped, l)
 			continue
@@ -560,24 +740,101 @@ func (m *Model) startClone() tea.Cmd {
 	if len(targets) == 0 {
 		msg := "Mark students with space in Ranking first"
 		if len(skipped) > 0 {
-			msg = "No graded submission to clone for: " + strings.Join(skipped, ", ")
+			msg = "No graded " + sd + " to clone for: " + strings.Join(skipped, ", ")
 		}
 		return m.setStatus(msg)
 	}
 	m.cloning = true
+	m.cloneErr = ""
 	m.cloneProg = cloneProgressMsg{0, len(targets)}
 	m.events = make(chan tea.Msg, 64)
 	ch, root := m.events, m.repoRoot()
+	m.pending = logins
 	go func() {
-		results := repos.SyncAll(context.Background(), root, targets, 4, func(done, total int) {
+		// One check first: a locked key would fail every clone.
+		if err := repos.CheckAccess(context.Background(), targets[0].Remote); repos.IsAuthError(err) {
+			ch <- cloneDoneMsg{authErr: err}
+			return
+		} else if err != nil {
+			ch <- cloneDoneMsg{checkErr: fmt.Errorf("%s (%s): %v", targets[0].Login, targets[0].Remote, err)}
+			return
+		}
+		results := repos.SyncAll(context.Background(), root, targets, 6, func(done, total int) {
 			select {
 			case ch <- cloneProgressMsg{done, total}:
 			default:
 			}
 		})
-		ch <- cloneDoneMsg{results}
+		ch <- cloneDoneMsg{results: results}
 	}()
 	return m.listen()
+}
+
+// unlockSSH loads the Forge key into an ssh-agent (started if none runs),
+// leaving the interface while ssh-add asks for the passphrase.
+func (m *Model) unlockSSH() tea.Cmd {
+	pid, err := repos.EnsureAgent()
+	if err != nil {
+		return m.setStatus(err.Error())
+	}
+	if pid > 0 {
+		m.agentPID = pid
+	}
+	host := "git.forge.epita.fr"
+	for _, st := range m.ds.Students {
+		if st.Group.GitRemoteURL != "" {
+			host = repos.Host(st.Group.GitRemoteURL)
+			break
+		}
+	}
+	cmd := exec.Command("ssh-add", repos.Identities(host)...)
+	return tea.ExecProcess(cmd, func(err error) tea.Msg { return sshUnlockedMsg{err} })
+}
+
+// startAnalysis analyses the repos on disk in the background, unless they
+// were already analysed as they are.
+func (m *Model) startAnalysis() tea.Cmd {
+	if m.analyzing || m.cloning || m.ds == nil {
+		return nil
+	}
+	dirs := map[string]string{}
+	var key []string
+	for _, l := range m.repoLogins() {
+		r, ok := m.clones[l]
+		if !ok || r.Err != nil || r.Dir == "" {
+			continue
+		}
+		dirs[l] = r.Dir
+		key = append(key, l+"@"+r.Commit)
+	}
+	k := strings.Join(key, ",")
+	if k == m.codeKey {
+		return nil
+	}
+	if len(dirs) == 0 {
+		m.code, m.codeKey, m.codeBest = nil, k, map[string]float64{}
+		m.gen++
+		return nil
+	}
+	m.analyzing = true
+	m.anProg = analysisProgressMsg{0, len(dirs)}
+	m.anEvents = make(chan tea.Msg, 64)
+	ch := m.anEvents
+	go func() {
+		res := analysis.Analyze(dirs, func(done, total int) {
+			select {
+			case ch <- analysisProgressMsg{done, total}:
+			default:
+			}
+		})
+		ch <- analysisDoneMsg{res, k}
+	}()
+	return m.listenAnalysis()
+}
+
+func (m *Model) listenAnalysis() tea.Cmd {
+	ch := m.anEvents
+	return func() tea.Msg { return <-ch }
 }
 
 // export writes the suspicious pairs of the current submission definition to CSV.
@@ -589,10 +846,39 @@ func (m *Model) export() (string, error) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	_ = w.Write([]string{"kind", "student_a", "student_b", "score", "details"})
-	for _, p := range m.pairsTraces() {
-		_ = w.Write([]string{"traces", p.A, p.B, fmt.Sprintf("%.3f", p.Score),
-			fmt.Sprintf("%d shared failures, %d with identical output", len(p.Shared), p.SameMsg)})
+	_ = w.Write([]string{"kind", "student_a", "student_b", "level", "score", "reason", "details"})
+	risks := m.riskScores()
+	logins := make([]string, 0, len(risks))
+	for l := range risks {
+		logins = append(logins, l)
+	}
+	sort.Slice(logins, func(i, j int) bool { return risks[logins[i]].Score > risks[logins[j]].Score })
+	for _, l := range logins {
+		r := risks[l]
+		_ = w.Write([]string{"risk", l, "", r.Level().String(), fmt.Sprintf("%.3f", r.Score), strings.Join(r.Reasons, "; "),
+			fmt.Sprintf("grade %.2f, timing %.2f, jump %.2f", r.Grade, r.Timing, r.Jump)})
+	}
+	for _, p := range m.codePairs() {
+		var fns []string
+		for _, mt := range p.Matches {
+			fns = append(fns, fmt.Sprintf("%s:%s~%s:%s %.0f%%", mt.A.File, mt.A.Name, mt.B.File, mt.B.Name, mt.Sim*100))
+		}
+		_ = w.Write([]string{"code", p.A, p.B, p.Level().String(), fmt.Sprintf("%.3f", p.Score), p.Reason(), strings.Join(fns, "; ")})
+	}
+	if m.code != nil {
+		ls := make([]string, 0, len(m.code.AI))
+		for l := range m.code.AI {
+			ls = append(ls, l)
+		}
+		sort.Slice(ls, func(i, j int) bool { return m.code.AI[ls[i]].Score > m.code.AI[ls[j]].Score })
+		for _, l := range ls {
+			s := m.code.AI[l]
+			var ds []string
+			for _, sg := range s.Signals {
+				ds = append(ds, sg.Detail)
+			}
+			_ = w.Write([]string{"ai", l, "", s.Level().String(), fmt.Sprintf("%.3f", s.Score), s.Reason(), strings.Join(ds, "; ")})
+		}
 	}
 	w.Flush()
 	if err := w.Error(); err != nil {

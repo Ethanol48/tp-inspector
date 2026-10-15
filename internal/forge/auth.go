@@ -93,6 +93,33 @@ func (a *Auth) Invalidate(old string) {
 	a.mu.Unlock()
 }
 
+// Username returns the CRI login of the session (preferred_username of the
+// ID token), "" when unknown. It never triggers a login.
+func (a *Auth) Username() string {
+	a.mu.Lock()
+	tok := a.tok.IDToken
+	a.mu.Unlock()
+	if tok == "" {
+		var t tokens
+		if b, err := os.ReadFile(a.File); err == nil && json.Unmarshal(b, &t) == nil {
+			tok = t.IDToken
+		}
+	}
+	parts := strings.Split(tok, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+	var claims struct {
+		PreferredUsername string `json:"preferred_username"`
+	}
+	_ = json.Unmarshal(payload, &claims)
+	return claims.PreferredUsername
+}
+
 // expired reports whether the JWT expires within the next minute.
 func expired(jwt string) bool {
 	parts := strings.Split(jwt, ".")

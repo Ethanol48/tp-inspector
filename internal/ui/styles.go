@@ -67,22 +67,6 @@ func pctCell(p int) string {
 	return pctStyle(p).Render(fmt.Sprintf("%d%%", p))
 }
 
-// scoreCell renders a 0..1 suspicion score.
-func scoreCell(s float64) string {
-	if s <= 0 {
-		return sDim.Render("·")
-	}
-	txt := fmt.Sprintf("%d%%", int(math.Round(s*100)))
-	switch {
-	case s >= 0.8:
-		return sBad.Bold(true).Render(txt)
-	case s >= 0.5:
-		return sWarn.Render(txt)
-	default:
-		return sDim.Render(txt)
-	}
-}
-
 var partials = []string{"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"}
 
 // bar draws a horizontal bar filled to frac (0..1).

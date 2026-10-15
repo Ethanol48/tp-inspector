@@ -44,7 +44,7 @@ func main() {
 	tenant := flag.String("tenant", "", "tenant slug (default: looked up in your activities)")
 	refresh := flag.Bool("refresh", false, "ignore cached API responses")
 	cacheDir := flag.String("cache", data.DefaultCacheRoot(), "cache directory")
-	loginsFile := flag.String("logins", "", "text file of logins (one per line, # comments): the Ranking shows only them (toggle with f)")
+	loginsFile := flag.String("logins", "", "text file of logins (one per line, # comments): your group; Overview and Ranking start on them (toggle with f), the Group tab compares them with the promo, A in Repos clones them")
 	flag.Parse()
 
 	auth := forge.NewAuth()
