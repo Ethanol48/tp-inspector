@@ -16,7 +16,7 @@ Requires **Go 1.26+**
 and `git`.
 
 ```sh
-git clone https://gitlab.cri.epita.fr/ethan.rouimi/tp-inspector.git
+git clone https://github.com/Ethanol48/tp-inspector.git
 cd tp-inspector
 go build -o tpi ./cmd/tpi
 ```
