@@ -66,9 +66,34 @@ var (
 	commitVerb = regexp.MustCompile(`^(Add|Implement|Refactor|Update|Improve|Enhance|Create|Introduce|Optimize|Handle|Ensure)\b`)
 )
 
+var (
+	// narrateRe matches comment lines that narrate the obvious
+	// ("Initialize the list", "Loop through the items", "Step 1").
+	narrateRe = regexp.MustCompile(`(?i)^(step \d+\b|first,|next,|finally,|then,|initiali[sz]e (the|a|an|all|our)\b|check (if|whether|that)\b|loop (through|over)\b|iterate (through|over)\b|return (the|a|an)\b|create (a|an|the)\b|helper (function|to)\b|this (function|method|class|struct)\b|make sure\b|ensure\b|handle (the|any|errors?|edge)\b)`)
+
+	// bannerRe matches section separators ("===== Helpers =====", "--- Utils ---").
+	bannerRe = regexp.MustCompile(`^[=\-*#~_]{3,}\s*\S.*\S\s*[=\-*#~_]{3,}$|^[=\-*#~_]{8,}$`)
+
+	// bulletRe matches a bullet line in a commit body.
+	bulletRe = regexp.MustCompile(`(?m)^[ \t]*[-*•][ \t]+\S`)
+
+	// chatStrongRe matches chatbot leftovers: phrases nobody writes in a
+	// comment or an error message unless they were pasted from an answer.
+	chatStrongRe = regexp.MustCompile(`(?i)(as an ai\b|i hope this helps|let me know if|feel free to|here'?s (the|a|an|how|your)|here is (the|a|an|your)|rest of (the|your) (code|implementation)|n.hésitez pas|j.espère que (cela|ça)|^bien sûr|voici (le|la|un|une|les|votre))`)
+
+	// chatWeakRe matches wording that generators overuse, in English and in
+	// French. One match means nothing; several do.
+	chatWeakRe = regexp.MustCompile(`(?i)(note that|keep in mind|for (simplicity|brevity|clarity|demonstration)|in a real[- ]world|production[- ]ready|best practices?|edge.?cases?|gracefully|robust|comprehensive|leverag|utiliz|seamless|under the hood|cas limites?|robuste|bonnes pratiques|il est (important|essentiel) de|afin de (garantir|assurer))`)
+)
+
 // AgentScore is the minimum AI score of a repo whose commits credit an AI
 // tool: the tool says so itself.
 const AgentScore = 0.95
+
+// AgentFileScore is the minimum AI score of a repo that contains files left
+// by an AI tool (CLAUDE.md, .cursorrules…). Weaker than a credit in the
+// commits: the files may have been committed without using the tool.
+const AgentFileScore = 0.9
 
 // agentTools maps a pattern found in commit metadata to the tool's name.
 var agentTools = []struct {
@@ -85,6 +110,14 @@ var agentTools = []struct {
 	{"Devin", regexp.MustCompile(`(?i)\bdevin(-ai)?\b.*(bot|ai)|devin-ai-integration`)},
 	{"Windsurf / Codeium", regexp.MustCompile(`(?i)\bwindsurf\b|\bcodeium\b`)},
 	{"Amazon Q", regexp.MustCompile(`(?i)amazon q developer|\bq developer\b`)},
+	{"Cline / Roo Code", regexp.MustCompile(`(?i)\bcline\b|\broo ?code\b`)},
+	{"Replit Agent", regexp.MustCompile(`(?i)\breplit[ -]agent\b`)},
+	{"Lovable / Bolt", regexp.MustCompile(`(?i)\blovable(\.dev|-dev)?\b|gpt-engineer-app|bolt\.new`)},
+	{"Qodo", regexp.MustCompile(`(?i)\bqodo\b|codiumai`)},
+	{"Kiro / Junie", regexp.MustCompile(`(?i)\bkiro\b|\bjunie\b`)},
+	{"Grok", regexp.MustCompile(`(?i)\bgrok\b`)},
+	{"DeepSeek", regexp.MustCompile(`(?i)\bdeepseek\b`)},
+	{"Mistral", regexp.MustCompile(`(?i)\bmistral(ai)?\b|\bcodestral\b`)},
 }
 
 // agentLine finds the commit metadata lines that credit a tool: co-author
@@ -104,6 +137,45 @@ func agentOf(c repos.Commit) string {
 	return ""
 }
 
+// agentFileRe matches the files and folders AI coding tools create in a repo.
+var agentFileRe = regexp.MustCompile(`(?i)(^|/)(claude\.md|agents\.md|gemini\.md|\.cursorrules|\.windsurfrules|\.clinerules|\.aider[^/]*|copilot-instructions\.md|\.claude|\.cursor|\.windsurf|\.codex|\.kiro|\.continue)(/|$)`)
+
+// AgentFiles returns the names of the AI tool files found among the paths of
+// a repo (sorted, without duplicates).
+func AgentFiles(paths []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range paths {
+		m := agentFileRe.FindStringSubmatch(p)
+		if m == nil {
+			continue
+		}
+		if !seen[m[2]] {
+			seen[m[2]] = true
+			out = append(out, m[2])
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// WithAgentFiles raises the score of a repo whose file list (git ls-files)
+// contains files left by AI tools. AIScores does not see the file list, so
+// the caller applies this after AIScores.
+func (s AIScore) WithAgentFiles(paths []string) AIScore {
+	found := AgentFiles(paths)
+	if len(found) == 0 {
+		return s
+	}
+	sg := Signal{
+		Name:   "AI tool files",
+		Detail: "the repo contains files left by AI coding tools: " + strings.Join(found[:min(5, len(found))], ", "),
+	}
+	s.Signals = append([]Signal{sg}, s.Signals...)
+	s.Score = math.Max(s.Score, AgentFileScore)
+	return s
+}
+
 // typographic reports characters that keyboards seldom produce but
 // generators often do.
 func typographic(r rune) bool {
@@ -111,7 +183,14 @@ func typographic(r rune) bool {
 	case '—', '–', '’', '‘', '“', '”', '→', '←', '⇒', '…', '•', '✓', '✔', '✅', '❌', '⚠', '≤', '≥', '≠', '×':
 		return true
 	}
-	return r >= 0x1F300 && r <= 0x1FAFF // emojis
+	return r >= 0x1F300 && r <= 0x1FAFF || // emojis
+		r >= 0x2190 && r <= 0x21FF || // arrows
+		r >= 0x2500 && r <= 0x259F || // box drawing, blocks (ASCII trees)
+		r >= 0x2600 && r <= 0x27BF || // symbols, dingbats (✨ ✗ ★ ▶)
+		r == 0xFE0F || // emoji variation selector
+		r == 0x00A0 || r == 0x202F || // non-breaking spaces
+		r == 0x2011 || r == 0x2212 || // non-breaking hyphen, true minus
+		r == 0x200B // zero-width space
 }
 
 func countTypo(ss []string) int {
@@ -124,6 +203,52 @@ func countTypo(ss []string) int {
 		}
 	}
 	return n
+}
+
+// countMatch counts the strings matching re.
+func countMatch(re *regexp.Regexp, ss []string) int {
+	n := 0
+	for _, s := range ss {
+		if re.MatchString(s) {
+			n++
+		}
+	}
+	return n
+}
+
+func wordSet(s string) map[string]bool {
+	m := map[string]bool{}
+	for _, w := range strings.Fields(s) {
+		m[w] = true
+	}
+	return m
+}
+
+// Stop words that exist in only one of the two languages.
+var (
+	enWords = wordSet("the and is are was were to of for with this that these those which when then each from will should be by has have we you your their than into also not can does")
+	frWords = wordSet("le la les des du une est sont pour dans avec sur pas cette ces qui que ou et au aux par il elle ne se ce mais donc si sinon chaque à où en nous vous")
+)
+
+// languageShare returns the share of English among the English and French
+// stop words of the comment lines, and how many stop words it saw.
+func languageShare(lines []string) (en float64, n int) {
+	e, f := 0, 0
+	for _, l := range lines {
+		words := strings.FieldsFunc(strings.ToLower(l), func(r rune) bool { return !unicode.IsLetter(r) })
+		for _, w := range words {
+			switch {
+			case enWords[w]:
+				e++
+			case frWords[w]:
+				f++
+			}
+		}
+	}
+	if e+f == 0 {
+		return 0, 0
+	}
+	return float64(e) / float64(e+f), e + f
 }
 
 // commentLines splits comments into their text lines, without markers.
@@ -180,6 +305,9 @@ type feature struct {
 	name   string
 	detail func(v, med float64) string
 	values map[string]float64
+	// minSD floors the standard deviation of the class, so that a very
+	// homogeneous class does not turn a tiny difference into a huge z-score.
+	minSD float64
 }
 
 // AIScores scores every repo. history maps logins to their git log; missing
@@ -214,7 +342,28 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 	fBig := mk("code in one commit", func(v, med float64) string {
 		return fmt.Sprintf("one commit adds %s of the code (promo median %s)", pct(v), pct(med))
 	})
-	features := []*feature{fComments, fSentences, fDocs, fGuards, fIdent, fRare, fFew, fBig}
+	fNarrate := mk("narrating comments", func(v, med float64) string {
+		return fmt.Sprintf("%s of comment lines narrate the obvious: \"Initialize…\", \"Loop through…\" (promo median %s)", pct(v), pct(med))
+	})
+	fNarrate.minSD = 0.05
+	fCommented := mk("every function commented", func(v, med float64) string {
+		return fmt.Sprintf("%s of functions have a comment (promo median %s)", pct(v), pct(med))
+	})
+	fCommented.minSD = 0.1
+	fEnglish := mk("english comments", func(v, med float64) string {
+		return fmt.Sprintf("%s of the English / French comment words are English (promo median %s)", pct(v), pct(med))
+	})
+	fEnglish.minSD = 0.15
+	fMsgs := mk("polished messages", func(v, med float64) string {
+		return fmt.Sprintf("%s of the long messages in strings are full sentences (promo median %s)", pct(v), pct(med))
+	})
+	fMsgs.minSD = 0.1
+	fUniform := mk("uniform functions", func(v, med float64) string {
+		return fmt.Sprintf("function sizes vary little (coefficient of variation %.2f, promo median %.2f)", -v, -med)
+	})
+	fUniform.minSD = 0.1
+	features := []*feature{fComments, fSentences, fDocs, fGuards, fIdent, fRare, fFew, fBig,
+		fNarrate, fCommented, fEnglish, fMsgs, fUniform}
 
 	// Constructs: keywords, operators and library calls (called, not defined).
 	constructs := map[string]map[string]bool{}
@@ -281,6 +430,57 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 				fIdent.values[l] = float64(idLen) / float64(ids)
 			}
 		}
+
+		// Comments that narrate the obvious.
+		if len(lines) > 0 {
+			fNarrate.values[l] = float64(countMatch(narrateRe, lines)) / float64(len(lines))
+		}
+		// Comments in a language other than the class's.
+		if en, w := languageShare(lines); w >= 30 {
+			fEnglish.values[l] = en
+		}
+		// Every function carries a comment.
+		if len(r.Funcs) > 0 {
+			com := 0
+			for i := range r.Funcs {
+				if f := &r.Funcs[i]; strings.TrimSpace(f.Doc) != "" || len(f.Comments) > 0 {
+					com++
+				}
+			}
+			fCommented.values[l] = float64(com) / float64(len(r.Funcs))
+		}
+		// Functions of strangely similar size (generators split evenly).
+		if len(r.Funcs) >= 8 {
+			sum := 0.0
+			for i := range r.Funcs {
+				sum += float64(len(r.Funcs[i].Body))
+			}
+			mean := sum / float64(len(r.Funcs))
+			sq := 0.0
+			for i := range r.Funcs {
+				dv := float64(len(r.Funcs[i].Body)) - mean
+				sq += dv * dv
+			}
+			if mean > 0 {
+				fUniform.values[l] = -math.Sqrt(sq/float64(len(r.Funcs))) / mean
+			}
+		}
+		// Error and log messages written as full sentences.
+		msgs, full := 0, 0
+		for _, m := range r.Strings {
+			m = strings.TrimSuffix(strings.Trim(m, "\"'` "), `\n`)
+			if len(strings.Fields(m)) < 3 {
+				continue
+			}
+			msgs++
+			if sentence(m) {
+				full++
+			}
+		}
+		if msgs >= 5 {
+			fMsgs.values[l] = float64(full) / float64(msgs)
+		}
+
 		if n >= 2*MinBaseline {
 			rare := 0
 			for c := range constructs[l] {
@@ -335,10 +535,11 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 		for _, f := range features {
 			s, ok := stats[f]
 			v, has := f.values[l]
-			if !ok || !has || s.sd < 1e-9 {
+			sd := math.Max(s.sd, f.minSD)
+			if !ok || !has || sd < 1e-9 {
 				continue
 			}
-			z := (v - s.mean) / s.sd
+			z := (v - s.mean) / sd
 			if z > 0 {
 				zs = append(zs, math.Min(z, 4))
 			}
@@ -368,6 +569,29 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 				sc.Signals = append(sc.Signals, Signal{Name: fDocs.name, Detail: fmt.Sprintf("%s of functions have a @param / Args: style doc comment", pct(v))})
 			}
 		}
+
+		// Chatbot leftovers and generated wording in comments and messages.
+		clines := commentLines(r.Comments)
+		all := append(slices.Clone(clines), r.Strings...)
+		if k := countMatch(chatStrongRe, all); k > 0 {
+			tells++
+			sc.Signals = append(sc.Signals, Signal{Name: "assistant phrasing", Detail: fmt.Sprintf("%d comment or message lines read like a chatbot answer (\"Here's…\", \"feel free to\", \"rest of the code\")", k)})
+		}
+		if k := countMatch(chatWeakRe, clines); k >= 3 {
+			tells += 0.5
+			sc.Signals = append(sc.Signals, Signal{Name: "generated vocabulary", Detail: fmt.Sprintf("%d comments use typical generated wording (robust, gracefully, edge cases, best practices…)", k)})
+		}
+		if k := countMatch(narrateRe, clines); k >= 3 && float64(k) >= 0.15*float64(len(clines)) {
+			tells += 0.5
+			if !hasSignal(sc.Signals, fNarrate.name) {
+				sc.Signals = append(sc.Signals, Signal{Name: fNarrate.name, Detail: fmt.Sprintf("%d of %d comment lines narrate the obvious (\"Initialize…\", \"Loop through…\")", k, len(clines))})
+			}
+		}
+		if k := countMatch(bannerRe, clines); k >= 2 {
+			tells += 0.5
+			sc.Signals = append(sc.Signals, Signal{Name: "section banners", Detail: fmt.Sprintf("%d banner comments (\"===== Helpers =====\")", k)})
+		}
+
 		var agent *Signal
 		if h := history[l]; len(h) > 0 {
 			byTool := map[string][]string{}
@@ -398,13 +622,27 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 		if h := history[l]; len(h) > 0 {
 			sc.Commits = len(h)
 			total, biggest := 0, 0
-			ai := 0
+			ai, bullets, typo := 0, 0, 0
 			for _, c := range h {
 				total += c.Added
 				biggest = max(biggest, c.Added)
+				if len(bulletRe.FindAllString(c.Body, -1)) >= 3 {
+					bullets++
+				}
+				if countTypo([]string{c.Subject, c.Body}) > 0 {
+					typo++
+				}
 				if commitAIRe.MatchString(c.Subject) || commitVerb.MatchString(c.Subject) && len(strings.Fields(c.Subject)) >= 4 {
 					ai++
 				}
+			}
+			if bullets >= 2 && 10*bullets >= 3*len(h) {
+				tells += 0.5
+				sc.Signals = append(sc.Signals, Signal{Name: "commit bodies", Detail: fmt.Sprintf("%d of %d commits have a bulleted body (3+ \"- …\" lines)", bullets, len(h))})
+			}
+			if typo >= 2 {
+				tells += 0.5
+				sc.Signals = append(sc.Signals, Signal{Name: "typography in commits", Detail: fmt.Sprintf("%d commit messages contain typographic characters or emojis", typo)})
 			}
 			if total >= 150 && float64(biggest) >= 0.8*float64(total) {
 				tells += 0.5
@@ -466,6 +704,19 @@ func topFuncs(r *Repo, longIdent float64) []FuncFlag {
 		if guard(f) {
 			ff.Score += 0.5
 			ff.Why = append(ff.Why, "guard clause")
+		}
+		fl := commentLines(f.Comments)
+		if countMatch(chatStrongRe, fl) > 0 {
+			ff.Score++
+			ff.Why = append(ff.Why, "assistant phrasing")
+		}
+		if countMatch(narrateRe, fl) >= 2 {
+			ff.Score += 0.5
+			ff.Why = append(ff.Why, "narrating comments")
+		}
+		if countMatch(chatWeakRe, fl) >= 2 {
+			ff.Score += 0.5
+			ff.Why = append(ff.Why, "generated vocabulary")
 		}
 		if longIdent > 0 && len(f.Idents) > 0 {
 			tot := 0

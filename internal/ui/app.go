@@ -57,8 +57,9 @@ type sshUnlockedMsg struct{ err error }
 type analysisProgressMsg struct{ done, total int }
 
 type analysisDoneMsg struct {
-	res *analysis.CodeResult
-	key string
+	res   *analysis.CodeResult
+	key   string
+	paste map[string]analysis.PasteReport
 }
 
 type statusClearMsg struct{ id int }
@@ -86,9 +87,10 @@ type Model struct {
 
 	risks map[string]map[string]analysis.RiskScore // sd -> login -> risk
 
-	code      *analysis.CodeResult // code similarity and AI heuristics of the repos on disk
-	codeBest  map[string]float64   // login -> best code pair score
-	codeKey   string               // repos (login@commit) code was computed for
+	code      *analysis.CodeResult            // code similarity and AI heuristics of the repos on disk
+	paste     map[string]analysis.PasteReport // login -> copy/paste and pace of the repos on disk
+	codeBest  map[string]float64              // login -> best code pair score
+	codeKey   string                          // repos (login@commit) code was computed for
 	analyzing bool
 	anProg    analysisProgressMsg
 	anEvents  chan tea.Msg
@@ -143,7 +145,7 @@ func New(slug tp.Slug, loader *data.Loader, list []string) *Model {
 	}
 	rv := newRankingView()
 	rv.onlyList = len(list) > 0
-	m.tabs = []view{&overviewView{onlyList: len(list) > 0}, rv, &testsView{}, &codeView{onlyGroup: true}, &reposView{}}
+	m.tabs = []view{&overviewView{onlyList: len(list) > 0}, rv, &testsView{}, &codeView{onlyGroup: true}, &reposView{}, &aiTabView{onlyGroup: true}, &pasteView{onlyGroup: true}}
 	return m
 }
 
@@ -300,7 +302,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.listenAnalysis()
 	case analysisDoneMsg:
 		m.analyzing = false
-		m.code, m.codeKey, m.codeBest = msg.res, msg.key, msg.res.Best()
+		m.code, m.codeKey, m.codeBest, m.paste = msg.res, msg.key, msg.res.Best(), msg.paste
 		m.gen++
 		// Repos may have changed while analysing.
 		next := m.startAnalysis()
@@ -404,7 +406,7 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 		case "shift+tab", "left":
 			m.active = (m.active + len(m.tabs) - 1) % len(m.tabs)
 			return nil
-		case "1", "2", "3", "4", "5":
+		case "1", "2", "3", "4", "5", "6", "7":
 			if i := int(key[0] - '1'); i < len(m.tabs) {
 				m.active = i
 			}
@@ -812,7 +814,7 @@ func (m *Model) startAnalysis() tea.Cmd {
 		return nil
 	}
 	if len(dirs) == 0 {
-		m.code, m.codeKey, m.codeBest = nil, k, map[string]float64{}
+		m.code, m.codeKey, m.codeBest, m.paste = nil, k, map[string]float64{}, nil
 		m.gen++
 		return nil
 	}
@@ -827,7 +829,8 @@ func (m *Model) startAnalysis() tea.Cmd {
 			default:
 			}
 		})
-		ch <- analysisDoneMsg{res, k}
+		paste := analysis.PasteAll(dirs, 6)
+		ch <- analysisDoneMsg{res, k, paste}
 	}()
 	return m.listenAnalysis()
 }
