@@ -21,6 +21,7 @@ import (
 	"tp-inspector/internal/repos"
 	"tp-inspector/internal/tp"
 	"tp-inspector/internal/trace"
+	"tp-inspector/internal/web"
 )
 
 // view is a tab or an overlay pushed on top of the tabs.
@@ -84,6 +85,8 @@ type Model struct {
 
 	marked map[string]bool // selected by hand with space in Ranking
 	list   map[string]bool // logins from --logins
+
+	stopWeb func()
 
 	risks map[string]map[string]analysis.RiskScore // sd -> login -> risk
 
@@ -155,6 +158,7 @@ func (m *Model) inSelection(login string) bool { return m.list[login] || m.marke
 // Run starts the program.
 func Run(m *Model) error {
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	if m.stopWeb != nil { m.stopWeb() }
 	repos.StopAgent(m.agentPID)
 	return err
 }
@@ -397,6 +401,19 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 			return m.setStatus("Export failed: " + err.Error())
 		}
 		return m.setStatus("Exported to " + p)
+	case "w":
+		if m.stopWeb != nil {
+			m.stopWeb()
+			m.stopWeb = nil
+			return m.setStatus("Web interface stopped")
+		}
+		url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:0")
+		if err != nil {
+			return m.setStatus("Web server failed: " + err.Error())
+		}
+		m.stopWeb = stop
+		_ = web.Open(url)
+		return m.setStatus("Web interface on " + url + " (w to stop)")
 	}
 	if len(m.stack) == 0 {
 		switch key {

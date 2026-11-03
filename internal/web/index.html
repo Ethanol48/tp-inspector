@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tpi · code des repos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --bg:#f7f3ee; --card:rgba(255,255,255,.74); --line:rgba(70,45,20,.10); --text:#231f1c; --muted:#7b746c;
+  --hover:rgba(70,45,20,.06); --a1:#f2704a; --a2:#8b5cf6; --grad:linear-gradient(135deg,var(--a1),var(--a2));
+  --tint:rgba(139,92,246,.11); --glow1:rgba(242,112,74,.30); --glow2:rgba(139,92,246,.24); --glow3:rgba(20,184,166,.20);
+  --shadow:0 1px 2px rgba(40,20,0,.05),0 14px 34px -14px rgba(70,35,90,.22); --code:rgba(255,255,255,.88);
+  --com:#8b93a1; --kw:#8250df; --str:#188a4a; --num:#e0680c; --fn:#1f6feb; --ty:#c2410c;
+  --sans:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --serif:"Newsreader",ui-serif,Georgia,"Times New Roman",serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#161514; --card:rgba(38,36,34,.76); --line:rgba(255,255,255,.08); --text:#f3efe8; --muted:#a29b91;
+  --hover:rgba(255,255,255,.07); --a1:#ff8a63; --a2:#a78bfa; --tint:rgba(167,139,250,.17);
+  --glow1:rgba(255,138,99,.22); --glow2:rgba(167,139,250,.22); --glow3:rgba(45,212,191,.13);
+  --shadow:0 14px 34px -14px rgba(0,0,0,.65); --code:rgba(22,21,20,.9);
+  --com:#6f7690; --kw:#c792ea; --str:#9ece6a; --num:#ff9e64; --fn:#7aa2f7; --ty:#2ac3de;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.5 var(--sans);color:var(--text);display:grid;grid-template-columns:290px 270px 1fr;gap:12px;padding:12px;overflow:hidden;
+  background:radial-gradient(700px 480px at 0% 0%,var(--glow1),transparent 70%),radial-gradient(800px 560px at 100% 0%,var(--glow2),transparent 70%),radial-gradient(700px 500px at 55% 115%,var(--glow3),transparent 70%),var(--bg);
+  background-attachment:fixed}
+:focus-visible{outline:2px solid var(--a2);outline-offset:-2px}
+button{font:inherit;color:inherit}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden;min-height:0;min-width:0}
+.av{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35)}
+
+/* students */
+#side{display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 16px 12px}
+.logo{width:30px;height:30px;border-radius:10px;background:var(--grad);display:grid;place-items:center;color:#fff;font:700 15px var(--mono);box-shadow:0 6px 16px -6px var(--a2)}
+.brand h1{font:500 22px/1 var(--serif);margin:0;letter-spacing:-.01em}
+.search{position:relative;margin:0 12px 8px}
+#q{width:100%;padding:10px 36px 10px 38px;font:inherit;color:var(--text);border:1px solid var(--line);border-radius:12px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3.5 3.5'/%3E%3C/svg%3E") 13px 50% no-repeat;transition:box-shadow .15s,border-color .15s}
+#q::placeholder{color:var(--muted)}
+#q:focus{outline:none;border-color:var(--a2);box-shadow:0 0 0 4px var(--tint)}
+.search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;pointer-events:none}
+#count{margin:0 16px 8px;color:var(--muted);font-size:12px}
+#repos{overflow:auto;flex:1;padding:0 8px 12px;margin:0;list-style:none}
+#repos button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:12px;cursor:pointer;transition:background .12s}
+#repos button span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#repos button:hover{background:var(--hover)}
+#repos button[aria-current=true]{background:var(--grad);color:#fff;font-weight:600;box-shadow:0 8px 18px -8px var(--a2)}
+#repos button[aria-current=true] .av{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
+
+/* files */
+#files{display:flex;flex-direction:column}
+#fh{display:flex;align-items:center;gap:10px;padding:16px 14px 10px;font-weight:600;overflow-wrap:anywhere}
+#fh:empty{display:none}
+#tree{overflow:auto;flex:1;padding:0 8px 12px}
+#tree details{margin-left:12px}
+#tree summary{cursor:pointer;padding:4px 8px;border-radius:8px;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px}
+#tree summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--a1);border-bottom:2px solid var(--a1);transform:rotate(-45deg);transition:transform .12s;margin:0 5px 0 2px}
+#tree details[open]>summary::before{transform:rotate(45deg)}
+#tree summary:hover,#tree .f:hover{background:var(--hover)}
+#tree .f{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 8px;border-radius:8px;cursor:pointer}
+#tree .f span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tree .f[aria-current=true]{background:var(--tint);color:var(--a2);font-weight:600}
+.ext{flex:none;min-width:24px;text-align:center;padding:1px 4px;border-radius:6px;color:#fff;font:700 9.5px/1.5 var(--mono)}
+
+/* code */
+main{display:flex;flex-direction:column}
+#bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+#crumb{display:flex;align-items:center;gap:10px;font:13px var(--mono);color:var(--muted);min-width:0;overflow:hidden;white-space:nowrap}
+#crumb b{color:var(--text);font-weight:600}
+.chip{flex:none;font-size:12px;padding:2px 10px;border-radius:99px;background:var(--tint);color:var(--a2);font-weight:600}
+#copy{margin-left:auto;border:0;background:var(--grad);color:#fff;font-weight:600;padding:7px 16px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px -6px var(--a2);transition:transform .12s,filter .12s}
+#copy:hover{filter:brightness(1.08);transform:translateY(-1px)}
+#copy:active{transform:none}
+#code{flex:1;overflow:auto;margin:0;padding:14px 0;font:13px/1.65 var(--mono);tab-size:4;counter-reset:n;background:var(--code)}
+#code .l{display:block;white-space:pre;padding:0 24px 0 0;min-height:1.65em}
+#code .l:hover{background:var(--hover)}
+#code .l::before{counter-increment:n;content:counter(n);display:inline-block;width:58px;padding-right:18px;text-align:right;color:var(--muted);opacity:.55;user-select:none}
+.t-com{color:var(--com);font-style:italic}.t-kw{color:var(--kw);font-weight:600}.t-str{color:var(--str)}
+.t-num{color:var(--num)}.t-fn{color:var(--fn)}.t-ty{color:var(--ty)}
+#empty{margin:auto;max-width:36ch;text-align:center;color:var(--muted);padding:24px}
+#empty .mark{width:76px;height:76px;margin:0 auto 18px;border-radius:24px;background:var(--grad);display:grid;place-items:center;color:#fff;font:700 28px var(--mono);box-shadow:0 18px 36px -14px var(--a2)}
+#empty h2{font:500 26px/1.25 var(--serif);margin:0 0 8px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+@media (max-width:900px){body{grid-template-columns:210px 1fr}#files{display:none}}
+</style>
+</head>
+<body>
+<aside id="side" class="pane">
+  <div class="brand"><div class="logo">&lt;/&gt;</div><h1>Repos</h1></div>
+  <div class="search"><input id="q" type="search" placeholder="Nom de l’élève" autocomplete="off" aria-label="Rechercher un élève"><kbd>/</kbd></div>
+  <div id="count"></div>
+  <ul id="repos"></ul>
+</aside>
+<nav id="files" class="pane" aria-label="Fichiers"><div id="fh"></div><div id="tree"></div></nav>
+<main class="pane">
+  <div id="bar" hidden><div id="crumb"></div><span id="fmeta" class="chip"></span><button id="copy">Copier</button></div>
+  <pre id="code" hidden></pre>
+  <div id="empty"><div class="mark">{ }</div><h2>Choisissez un élève</h2><p>Tapez son nom à gauche, puis ouvrez un fichier. Appuyez sur / pour chercher, Entrée pour ouvrir le premier résultat.</p></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let all = [], login = null, paths = [], current = null;
+
+async function api(p, params) {
+  const r = await fetch('/api/' + p + (params ? '?' + new URLSearchParams(params) : ''));
+  if (!r.ok) throw new Error((await r.text()).trim());
+  return r.json();
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function show(msg, sub) {
+  $('#bar').hidden = true; $('#code').hidden = true;
+  const e = $('#empty'); e.hidden = false;
+  e.replaceChildren(el('div', 'mark', '{ }'), el('h2', '', msg), el('p', '', sub || ''));
+}
+
+/* colors */
+function hue(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function avatar(l) {
+  const h = hue(l), a = el('span', 'av', l.slice(0, 2).toLowerCase());
+  a.style.background = `linear-gradient(135deg,hsl(${h} 78% 58%),hsl(${(h + 45) % 360} 80% 50%))`;
+  return a;
+}
+const EXT = {go:'#00acd7',py:'#3b7bbf',c:'#5c6bc0',h:'#8e6bd1',cpp:'#00599c',cc:'#00599c',hpp:'#8e6bd1',js:'#d4a017',ts:'#3178c6',java:'#e76f00',
+  rs:'#c2562b',md:'#6b7280',json:'#e8912d',html:'#e34f26',css:'#8b5cf6',sh:'#2f9e44',yml:'#cb3a3a',yaml:'#cb3a3a',toml:'#9c4221',
+  txt:'#6b7280',makefile:'#2f9e44',mk:'#2f9e44',ml:'#e87d0d',php:'#777bb3',rb:'#cc342d',cs:'#68217a',s:'#0d9488',asm:'#0d9488'};
+const extOf = p => { const n = p.split('/').pop().toLowerCase(); return n.includes('.') ? n.split('.').pop() : n; };
+function badge(p) {
+  const e = extOf(p), b = el('span', 'ext', e.slice(0, 3));
+  b.style.background = EXT[e] || `hsl(${hue(e)} 35% 55%)`;
+  return b;
+}
+
+/* syntax highlighting */
+const KW = new Set(`if else for while do switch case break continue return func function def class struct enum union typedef static const let var
+int char float double void long short unsigned signed bool string import from package include define using namespace public private protected
+new delete null nil None true false True False self this fn mut pub use impl trait match in is not and or lambda try catch except finally
+throw throws raise with as async await go defer chan map interface type extends implements sizeof extern volatile inline goto default
+elif pass yield global range make len append print printf`.split(/\s+/));
+const STR_C = String.raw`"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|\x60[^\x60]*\x60`;
+const TAIL = String.raw`|(\b\d[\w.]*)|([A-Za-z_]\w*)`;
+const RE_C = new RegExp(String.raw`(\/\/.*|\/\*[\s\S]*?\*\/)|(${STR_C})${TAIL}|(#\s*(?:include|define|undef|ifdef|ifndef|if|elif|else|endif|pragma|error)\b)`, 'g');
+const RE_H = new RegExp(String.raw`(#.*)|("""[\s\S]*?"""|'''[\s\S]*?'''|${STR_C})${TAIL}`, 'g');
+const HASH = new Set(['py','sh','bash','rb','yml','yaml','toml','mk','makefile','cfg','ini','conf','pl','r','dockerfile']);
+const PLAIN = new Set(['md','txt','csv','log','svg','xml']);
+
+function tokenize(text, e) {
+  const re = HASH.has(e) ? RE_H : RE_C, out = [];
+  re.lastIndex = 0;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(['', text.slice(last, m.index)]);
+    let t = '';
+    if (m[1]) t = 'com';
+    else if (m[2]) t = 'str';
+    else if (m[3]) t = 'num';
+    else if (m[4]) t = KW.has(m[4]) ? 'kw' : text[re.lastIndex] === '(' ? 'fn' : /^[A-Z]/.test(m[4]) && /[a-z]/.test(m[4]) ? 'ty' : '';
+    else if (m[5]) t = 'kw';
+    out.push([t, m[0]]);
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push(['', text.slice(last)]);
+  return out;
+}
+function render(text, e) {
+  const toks = text.length > 300000 || PLAIN.has(e) ? [['', text]] : tokenize(text, e);
+  const lines = [el('span', 'l')];
+  for (const [t, s] of toks) {
+    s.split('\n').forEach((part, i) => {
+      if (i > 0) lines.push(el('span', 'l'));
+      if (!part) return;
+      lines.at(-1).append(t ? el('span', 't-' + t, part) : document.createTextNode(part));
+    });
+  }
+  return lines;
+}
+
+/* students */
+function renderRepos() {
+  const q = $('#q').value.trim().toLowerCase();
+  const list = all.filter(l => l.toLowerCase().includes(q));
+  $('#count').textContent = list.length + ' sur ' + all.length + ' repos';
+  const ul = $('#repos'); ul.replaceChildren();
+  for (const l of list) {
+    const li = el('li'), b = el('button');
+    b.append(avatar(l), el('span', '', l));
+    b.setAttribute('aria-current', l === login);
+    b.onclick = () => openRepo(l);
+    li.append(b); ul.append(li);
+  }
+  return list;
+}
+
+async function openRepo(l, file) {
+  login = l; current = null;
+  renderRepos();
+  try { paths = await api('tree', { login: l }); }
+  catch (e) { paths = []; show('Repo introuvable', e.message); return; }
+  renderTree();
+  const pick = file && paths.includes(file) ? file
+    : paths.find(p => /^readme(\.|$)/i.test(p)) || paths[0];
+  if (pick) openFile(pick); else show('Repo vide', 'Aucun fichier à afficher pour ' + l + '.');
+}
+
+/* file tree */
+function renderTree() {
+  const root = {dirs: {}, files: []};
+  for (const p of paths) {
+    const parts = p.split('/'); let n = root;
+    for (const d of parts.slice(0, -1)) n = n.dirs[d] ??= {dirs: {}, files: []};
+    n.files.push(p);
+  }
+  const build = (n, depth) => {
+    const frag = document.createDocumentFragment();
+    for (const d of Object.keys(n.dirs).sort()) {
+      const det = el('details'), sum = el('summary', '', d);
+      det.open = depth < 1; det.append(sum, build(n.dirs[d], depth + 1)); frag.append(det);
+    }
+    for (const p of n.files) {
+      const b = el('button', 'f');
+      b.append(badge(p), el('span', '', p.split('/').pop()));
+      b.dataset.path = p; b.title = p; b.onclick = () => openFile(p); frag.append(b);
+    }
+    return frag;
+  };
+  $('#fh').replaceChildren(avatar(login), el('span', '', login));
+  $('#tree').replaceChildren(build(root, 0));
+  markCurrent();
+}
+function markCurrent() {
+  document.querySelectorAll('#tree .f').forEach(b => b.setAttribute('aria-current', b.dataset.path === current));
+}
+
+/* code */
+async function openFile(p) {
+  current = p; markCurrent();
+  history.replaceState(null, '', '#' + encodeURIComponent(login) + '/' + p.split('/').map(encodeURIComponent).join('/'));
+  let f;
+  try { f = await api('file', { login, path: p }); }
+  catch (e) { show('Fichier illisible', e.message); return; }
+  if (current !== p) return;
+  if (f.big) return show(p, 'Fichier de plus de 1 Mo : ouvrez-le dans votre éditeur.');
+  if (f.binary) return show(p, 'Fichier binaire : rien à afficher.');
+  const lines = render(f.text.replace(/\r\n?/g, '\n').replace(/\n$/, ''), extOf(p));
+  const code = $('#code');
+  code.replaceChildren(...lines);
+  const parts = p.split('/'), name = el('b', '', parts.pop());
+  $('#crumb').replaceChildren(badge(p), el('span', '', [login, ...parts].join(' / ') + ' / '), name);
+  $('#fmeta').textContent = lines.length + ' lignes';
+  $('#bar').hidden = false; code.hidden = false; $('#empty').hidden = true;
+  code.scrollTop = 0;
+  $('#copy').onclick = async e => {
+    await navigator.clipboard.writeText(f.text);
+    e.target.textContent = 'Copié'; setTimeout(() => e.target.textContent = 'Copier', 1500);
+  };
+}
+
+/* start */
+$('#q').addEventListener('input', renderRepos);
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const l = renderRepos(); if (l.length) openRepo(l[0]); }
+});
+addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+});
+(async () => {
+  try { all = await api('repos'); }
+  catch (e) { show('Impossible de lire les repos', e.message); return; }
+  renderRepos();
+  if (!all.length) return show('Aucun repo cloné', 'Clonez les repos depuis l’onglet Repos de tpi, puis rechargez cette page.');
+  const h = decodeURIComponent(location.hash.slice(1)), i = h.indexOf('/');
+  const l = i < 0 ? h : h.slice(0, i);
+  if (all.includes(l)) openRepo(l, i < 0 ? null : h.slice(i + 1));
+})();
+</script>
+</body>
+</html>
