@@ -407,7 +407,7 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 			m.stopWeb = nil
 			return m.setStatus("Web interface stopped")
 		}
-		url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:0")
+		url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888")
 		if err != nil {
 			return m.setStatus("Web server failed: " + err.Error())
 		}
