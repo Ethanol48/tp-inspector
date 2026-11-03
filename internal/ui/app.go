@@ -87,6 +87,7 @@ type Model struct {
 	list   map[string]bool // logins from --logins
 
 	stopWeb func()
+	webURL  string
 
 	risks map[string]map[string]analysis.RiskScore // sd -> login -> risk
 
@@ -218,7 +219,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.risks = map[string]map[string]analysis.RiskScore{}
 			m.stack = nil
 			m.gen++
-			analyze := m.startAnalysis() // repos cloned in earlier runs
+			analyze := tea.Batch(m.startAnalysis(), m.startWeb()) // repos cloned in earlier runs
 			var unknown []string
 			for l := range m.list {
 				if m.student(l) == nil {
@@ -317,6 +318,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) startWeb() tea.Cmd {
+	if m.stopWeb != nil {
+		return nil
+	}
+	url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888")
+	if err != nil {
+		return m.setStatus("Web server failed: " + err.Error())
+	}
+	m.stopWeb = stop
+	m.webURL = url
+	return nil
+}
+
 func (m *Model) top() view {
 	if len(m.stack) > 0 {
 		return m.stack[len(m.stack)-1]
@@ -402,18 +416,13 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 		}
 		return m.setStatus("Exported to " + p)
 	case "w":
-		if m.stopWeb != nil {
-			m.stopWeb()
-			m.stopWeb = nil
-			return m.setStatus("Web interface stopped")
+		if m.webURL == "" {
+			return m.setStatus("Web server is not running")
 		}
-		url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888")
-		if err != nil {
-			return m.setStatus("Web server failed: " + err.Error())
+		if err := web.Open(m.webURL); err != nil {
+			return m.setStatus("Cannot open the browser (" + err.Error() + "), open " + m.webURL + " by hand")
 		}
-		m.stopWeb = stop
-		_ = web.Open(url)
-		return m.setStatus("Web interface on " + url + " (w to stop)")
+		return m.setStatus("Opening " + m.webURL)
 	}
 	if len(m.stack) == 0 {
 		switch key {
@@ -507,6 +516,9 @@ func (m *Model) View() string {
 func (m *Model) footer(top view) string {
 	sep := sDim.Render(" · ")
 	optional := append(top.Keys(), keyHint("m", "definition"), keyHint("e", "export"))
+	if m.webURL != "" {
+		optional = append(optional, keyHint("w", m.webURL))
+	}
 	tail := []string{keyHint("?", "help")}
 	if len(m.stack) > 0 {
 		tail = append(tail, keyHint("esc", "back"))

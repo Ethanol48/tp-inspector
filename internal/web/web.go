@@ -9,10 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"unicode/utf8"
+	"errors"
 )
 
 //go:embed index.html
@@ -48,15 +48,35 @@ func Start(root, addr string) (string, func(), error) {
 	return "http://" + ln.Addr().String(), func() { srv.Close() }, nil
 }
 
-// Open opens url in the default browser.
 func Open(url string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		return exec.Command("open", url).Start()
-	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	var candidates [][]string
+	if b := os.Getenv("BROWSER"); b != "" {
+		candidates = append(candidates, []string{b})
 	}
-	return exec.Command("xdg-open", url).Start()
+	candidates = append(candidates,
+		[]string{"wslview"},
+		[]string{"explorer.exe"},
+		[]string{"/mnt/c/Windows/explorer.exe"},
+		[]string{"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"},
+		[]string{"/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe"},
+		[]string{"/mnt/c/Program Files/Mozilla Firefox/firefox.exe"},
+		[]string{"cmd.exe", "/c", "start", ""},
+		[]string{"google-chrome"}, []string{"chromium"}, []string{"firefox"},
+		[]string{"xdg-open"},
+	)
+	for _, c := range candidates {
+		path, err := exec.LookPath(c[0])
+		if err != nil {
+			continue
+		}
+		cmd := exec.Command(path, append(c[1:], url)...)
+		if err := cmd.Start(); err != nil {
+			continue
+		}
+		_ = cmd.Process.Release()
+		return nil
+	}
+	return errors.New("no browser found")
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
