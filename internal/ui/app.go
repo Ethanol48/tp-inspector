@@ -87,7 +87,7 @@ type Model struct {
 	list   map[string]bool // logins from --logins
 
 	stopWeb func()
-	webURL  string
+	webURL  string // adresse du serveur web, vide s'il n'a pas pu démarrer
 
 	risks map[string]map[string]analysis.RiskScore // sd -> login -> risk
 
@@ -195,6 +195,24 @@ func (m *Model) setStatus(s string) tea.Cmd {
 	return tea.Tick(4*time.Second, func(time.Time) tea.Msg { return statusClearMsg{id} })
 }
 
+// startWeb lance le serveur web une seule fois ; il reste ouvert jusqu'à la sortie.
+func (m *Model) startWeb() tea.Cmd {
+	if m.stopWeb != nil {
+		return nil
+	}
+	traces := "https://operator.forge.epita.fr/epita-prepa-computer-science/" + m.ds.Activity.Slug + "/traces"
+	url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888", traces)
+	if err != nil {
+		return m.setStatus("Web server failed: " + err.Error())
+	}
+	if !strings.HasPrefix(url, "http") {
+		url = "http://" + url
+	}
+	m.stopWeb = stop
+	m.webURL = url
+	return nil
+}
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -219,7 +237,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.risks = map[string]map[string]analysis.RiskScore{}
 			m.stack = nil
 			m.gen++
-			analyze := tea.Batch(m.startAnalysis(), m.startWeb()) // repos cloned in earlier runs
+			analyze := tea.Batch(m.startAnalysis(), m.startWeb()) // repos cloned in earlier runs + web server
 			var unknown []string
 			for l := range m.list {
 				if m.student(l) == nil {
@@ -316,19 +334,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleKey(msg)
 	}
 	return m, nil
-}
-
-func (m *Model) startWeb() tea.Cmd {
-	if m.stopWeb != nil {
-		return nil
-	}
-	url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888")
-	if err != nil {
-		return m.setStatus("Web server failed: " + err.Error())
-	}
-	m.stopWeb = stop
-	m.webURL = url
-	return nil
 }
 
 func (m *Model) top() view {

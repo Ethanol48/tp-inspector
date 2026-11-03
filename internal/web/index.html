@@ -6,30 +6,34 @@
 <title>tpi · code des repos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
 :root{
-  --bg:#f7f3ee; --card:rgba(255,255,255,.74); --line:rgba(70,45,20,.10); --text:#231f1c; --muted:#7b746c;
-  --hover:rgba(70,45,20,.06); --a1:#f2704a; --a2:#8b5cf6; --grad:linear-gradient(135deg,var(--a1),var(--a2));
-  --tint:rgba(139,92,246,.11); --glow1:rgba(242,112,74,.30); --glow2:rgba(139,92,246,.24); --glow3:rgba(20,184,166,.20);
-  --shadow:0 1px 2px rgba(40,20,0,.05),0 14px 34px -14px rgba(70,35,90,.22); --code:rgba(255,255,255,.88);
-  --com:#8b93a1; --kw:#8250df; --str:#188a4a; --num:#e0680c; --fn:#1f6feb; --ty:#c2410c;
-  --sans:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --serif:"Newsreader",ui-serif,Georgia,"Times New Roman",serif;
+  color-scheme:dark;
+  --bg:#07070c; --card:rgba(14,14,24,.72); --line:rgba(255,255,255,.12); --text:#f5f5fa; --muted:#9b9bb2;
+  --hover:rgba(255,255,255,.07); --a1:#ff5c8a; --a2:#a78bfa; --btn:#2f6bff;
+  --tint:rgba(167,139,250,.18); --shadow:0 18px 40px -18px rgba(0,0,0,.8); --code:rgba(6,6,12,.88);
+  --com:#6f7690; --kw:#c792ea; --str:#9ece6a; --num:#ff9e64; --fn:#7aa2f7; --ty:#2ac3de;
+  --sans:"Poppins",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#161514; --card:rgba(38,36,34,.76); --line:rgba(255,255,255,.08); --text:#f3efe8; --muted:#a29b91;
-  --hover:rgba(255,255,255,.07); --a1:#ff8a63; --a2:#a78bfa; --tint:rgba(167,139,250,.17);
-  --glow1:rgba(255,138,99,.22); --glow2:rgba(167,139,250,.22); --glow3:rgba(45,212,191,.13);
-  --shadow:0 14px 34px -14px rgba(0,0,0,.65); --code:rgba(22,21,20,.9);
-  --com:#6f7690; --kw:#c792ea; --str:#9ece6a; --num:#ff9e64; --fn:#7aa2f7; --ty:#2ac3de;
-}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{font:14px/1.5 var(--sans);color:var(--text);display:grid;grid-template-columns:290px 270px 1fr;gap:12px;padding:12px;overflow:hidden;
-  background:radial-gradient(700px 480px at 0% 0%,var(--glow1),transparent 70%),radial-gradient(800px 560px at 100% 0%,var(--glow2),transparent 70%),radial-gradient(700px 500px at 55% 115%,var(--glow3),transparent 70%),var(--bg);
+  background:
+    radial-gradient(520px 420px at 92% 18%,rgba(255,92,138,.36),transparent 70%),
+    radial-gradient(520px 420px at 14% 22%,rgba(139,92,246,.32),transparent 70%),
+    radial-gradient(560px 420px at 4% 105%,rgba(255,92,138,.26),transparent 70%),
+    radial-gradient(480px 380px at 96% 100%,rgba(59,130,246,.22),transparent 70%),
+    linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px) 0 0/48px 48px,
+    linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px) 0 0/48px 48px,
+    var(--bg);
   background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(1.5px 1.5px at 22% 9%,#fff,transparent),radial-gradient(1.5px 1.5px at 47% 14%,#fff,transparent),
+  radial-gradient(1.5px 1.5px at 71% 7%,#fff,transparent),radial-gradient(1.5px 1.5px at 88% 46%,#fff,transparent),
+  radial-gradient(1.5px 1.5px at 35% 93%,#fff,transparent),radial-gradient(1.5px 1.5px at 63% 88%,#fff,transparent),
+  radial-gradient(1.5px 1.5px at 8% 61%,#fff,transparent)}
 :focus-visible{outline:2px solid var(--a2);outline-offset:-2px}
 button{font:inherit;color:inherit}
 *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
@@ -39,25 +43,28 @@ button{font:inherit;color:inherit}
 /* students */
 #side{display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:10px;padding:18px 16px 12px}
-.logo{width:30px;height:30px;border-radius:10px;background:var(--grad);display:grid;place-items:center;color:#fff;font:700 15px var(--mono);box-shadow:0 6px 16px -6px var(--a2)}
-.brand h1{font:500 22px/1 var(--serif);margin:0;letter-spacing:-.01em}
+.logo{width:30px;height:30px;border-radius:10px;background:var(--btn);display:grid;place-items:center;color:#fff;font:700 15px var(--mono);box-shadow:0 6px 16px -6px var(--btn)}
+.brand h1{font:700 20px/1 var(--sans);margin:0;letter-spacing:-.01em}
 .search{position:relative;margin:0 12px 8px}
-#q{width:100%;padding:10px 36px 10px 38px;font:inherit;color:var(--text);border:1px solid var(--line);border-radius:12px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3.5 3.5'/%3E%3C/svg%3E") 13px 50% no-repeat;transition:box-shadow .15s,border-color .15s}
+#q{width:100%;padding:10px 36px 10px 38px;font:inherit;color:var(--text);border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23a78bfa' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3.5 3.5'/%3E%3C/svg%3E") 13px 50% no-repeat;transition:box-shadow .15s,border-color .15s}
 #q::placeholder{color:var(--muted)}
 #q:focus{outline:none;border-color:var(--a2);box-shadow:0 0 0 4px var(--tint)}
 .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;pointer-events:none}
 #count{margin:0 16px 8px;color:var(--muted);font-size:12px}
 #repos{overflow:auto;flex:1;padding:0 8px 12px;margin:0;list-style:none}
 #repos button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:12px;cursor:pointer;transition:background .12s}
-#repos button span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#repos button .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #repos button:hover{background:var(--hover)}
-#repos button[aria-current=true]{background:var(--grad);color:#fff;font-weight:600;box-shadow:0 8px 18px -8px var(--a2)}
+#repos button[aria-current=true]{background:var(--btn);color:#fff;font-weight:600;box-shadow:0 8px 20px -8px var(--btn)}
 #repos button[aria-current=true] .av{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
 
 /* files */
 #files{display:flex;flex-direction:column}
-#fh{display:flex;align-items:center;gap:10px;padding:16px 14px 10px;font-weight:600;overflow-wrap:anywhere}
+#fh{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px 14px 10px;font-weight:600;overflow-wrap:anywhere}
 #fh:empty{display:none}
+.acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.dl{flex:none;text-decoration:none;color:#fff;background:var(--btn);font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;box-shadow:0 6px 14px -6px var(--btn);transition:filter .12s}
+.dl:hover{filter:brightness(1.12)}
 #tree{overflow:auto;flex:1;padding:0 8px 12px}
 #tree details{margin-left:12px}
 #tree summary{cursor:pointer;padding:4px 8px;border-radius:8px;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px}
@@ -75,8 +82,8 @@ main{display:flex;flex-direction:column}
 #crumb{display:flex;align-items:center;gap:10px;font:13px var(--mono);color:var(--muted);min-width:0;overflow:hidden;white-space:nowrap}
 #crumb b{color:var(--text);font-weight:600}
 .chip{flex:none;font-size:12px;padding:2px 10px;border-radius:99px;background:var(--tint);color:var(--a2);font-weight:600}
-#copy{margin-left:auto;border:0;background:var(--grad);color:#fff;font-weight:600;padding:7px 16px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px -6px var(--a2);transition:transform .12s,filter .12s}
-#copy:hover{filter:brightness(1.08);transform:translateY(-1px)}
+#copy{margin-left:auto;border:0;background:var(--btn);color:#fff;font-weight:600;padding:7px 16px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px -6px var(--btn);transition:transform .12s,filter .12s}
+#copy:hover{filter:brightness(1.12);transform:translateY(-1px)}
 #copy:active{transform:none}
 #code{flex:1;overflow:auto;margin:0;padding:14px 0;font:13px/1.65 var(--mono);tab-size:4;counter-reset:n;background:var(--code)}
 #code .l{display:block;white-space:pre;padding:0 24px 0 0;min-height:1.65em}
@@ -85,8 +92,17 @@ main{display:flex;flex-direction:column}
 .t-com{color:var(--com);font-style:italic}.t-kw{color:var(--kw);font-weight:600}.t-str{color:var(--str)}
 .t-num{color:var(--num)}.t-fn{color:var(--fn)}.t-ty{color:var(--ty)}
 #empty{margin:auto;max-width:36ch;text-align:center;color:var(--muted);padding:24px}
-#empty .mark{width:76px;height:76px;margin:0 auto 18px;border-radius:24px;background:var(--grad);display:grid;place-items:center;color:#fff;font:700 28px var(--mono);box-shadow:0 18px 36px -14px var(--a2)}
-#empty h2{font:500 26px/1.25 var(--serif);margin:0 0 8px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+#empty .mark{width:104px;height:66px;margin:0 auto 24px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;font:700 22px var(--mono);box-shadow:0 0 28px -4px rgba(255,255,255,.35)}
+#empty h2{font:700 38px/1.15 var(--sans);letter-spacing:-.02em;margin:0 0 12px;background:linear-gradient(90deg,#ff5c8a,#8b5cf6,#3b82f6,#2dd4bf);-webkit-background-clip:text;background-clip:text;color:transparent}
+#empty p::before{content:"»";color:var(--btn);font-weight:700;margin-right:6px}
+
+/* logins autorisés */
+#chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 12px 8px}
+#chips button{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:99px;padding:3px 12px;font-size:12px;cursor:pointer;transition:background .12s}
+#chips button:hover{background:var(--hover)}
+#chips button[aria-pressed=true]{background:var(--btn);border-color:var(--btn);color:#fff;font-weight:600}
+#chips .cfg{margin-left:auto;color:var(--muted);border-style:dashed}
+#chips .none{color:var(--muted);font-size:12px;padding:3px 4px}
 @media (max-width:900px){body{grid-template-columns:210px 1fr}#files{display:none}}
 </style>
 </head>
@@ -94,6 +110,8 @@ main{display:flex;flex-direction:column}
 <aside id="side" class="pane">
   <div class="brand"><div class="logo">&lt;/&gt;</div><h1>Repos</h1></div>
   <div class="search"><input id="q" type="search" placeholder="Nom de l’élève" autocomplete="off" aria-label="Rechercher un élève"><kbd>/</kbd></div>
+  <div id="chips"></div>
+  <input id="gfile" type="file" accept=".yml,.yaml,text/plain" hidden>
   <div id="count"></div>
   <ul id="repos"></ul>
 </aside>
@@ -104,9 +122,91 @@ main{display:flex;flex-direction:column}
   <div id="empty"><div class="mark">{ }</div><h2>Choisissez un élève</h2><p>Tapez son nom à gauche, puis ouvrez un fichier. Appuyez sur / pour chercher, Entrée pour ouvrir le premier résultat.</p></div>
 </main>
 
+
 <script>
 const $ = s => document.querySelector(s);
-let all = [], login = null, paths = [], current = null;
+let all = [], visible = [], login = null, paths = [], current = null, tracesBase = '';
+
+/* classes lues dans groups.yml (à côté de index.html) */
+let groups = [], selected = new Set(), allowed = new Set();
+try { selected = new Set(JSON.parse(localStorage.getItem('tpi-classes-sel')) || []); } catch {}
+const saveSel = () => { try { localStorage.setItem('tpi-classes-sel', JSON.stringify([...selected])); } catch {} };
+
+/* lecteur YAML tolérant : "class: X" puis "logins:" suivi d'une liste ("- login" ou "* login"),
+   ou d'une liste en ligne ("logins: [a, b]" / "logins: a b"). Plusieurs classes possibles. */
+function parseGroups(txt) {
+  const gs = [];
+  let g = null, inLogins = false;
+  const unq = v => v.trim().replace(/^["']|["']$/g, '');
+  const add = v => { v = unq(v); if (v && g) g.logins.push(v); };
+  for (const raw of txt.split(/\r?\n/)) {
+    const line = raw.replace(/(^|\s)#.*$/, '').trim();
+    if (!line || /^(---|\.\.\.)$/.test(line)) continue;
+    const t = line.replace(/^[-*]\s+/, '');
+    let m = t.match(/^(?:class|classe|name|nom)\s*:\s*(.*)$/i);
+    if (m) {
+      const name = unq(m[1]);
+      g = name ? (gs.find(x => x.name === name) || (gs.push({name, logins: []}), gs.at(-1))) : null;
+      inLogins = false; continue;
+    }
+    m = t.match(/^logins?\s*:\s*(.*)$/i);
+    if (m) {
+      inLogins = true;
+      m[1].replace(/^\[|\]$/g, '').split(/[\s,;]+/).forEach(add);
+      continue;
+    }
+    if (g && inLogins) add(t.split(/[\s,;]+/)[0]);
+  }
+  return gs.filter(x => x.logins.length);
+}
+function applyAllowed() {
+  allowed = new Set();
+  for (const g of groups) if (selected.has(g.name)) g.logins.forEach(l => allowed.add(l.toLowerCase()));
+  visible = all.filter(l => allowed.has(l.toLowerCase())).sort((a, b) => a.localeCompare(b, 'fr', {numeric: true}));
+}
+function loadBtn() {
+  const b = el('button', 'cfg', 'Charger groups.yml');
+  b.title = 'Choisir le fichier groups.yml (utile si le serveur ne le fournit pas)';
+  b.onclick = () => $('#gfile').click();
+  return b;
+}
+function renderChips() {
+  const box = $('#chips');
+  if (!groups.length) { box.replaceChildren(el('span', 'none', 'Aucune classe chargée'), loadBtn()); return; }
+  box.replaceChildren(...groups.map(g => {
+    const b = el('button', '', g.name + ' (' + g.logins.length + ')');
+    b.setAttribute('aria-pressed', selected.has(g.name));
+    b.onclick = () => toggleClass(g.name);
+    return b;
+  }), loadBtn());
+}
+function setGroups(text) {
+  groups = parseGroups(text || '');
+  const names = new Set(groups.map(g => g.name));
+  selected = new Set([...selected].filter(n => names.has(n)));
+  applyAllowed();
+  if (login && !visible.includes(login)) {
+    login = null; current = null; paths = [];
+    $('#fh').replaceChildren(); $('#tree').replaceChildren();
+  }
+  renderChips(); renderRepos();
+}
+const noGroupsHint = () => show('groups.yml introuvable',
+  'Le serveur ne fournit pas ce fichier. Cliquez sur « Charger groups.yml » à gauche et choisissez-le : il sera mémorisé dans ce navigateur.');
+function toggleClass(name) {
+  if (selected.has(name)) selected.delete(name); else selected.add(name);
+  saveSel(); applyAllowed();
+  if (login && !visible.includes(login)) {
+    login = null; current = null; paths = [];
+    $('#fh').replaceChildren(); $('#tree').replaceChildren();
+  }
+  renderChips(); renderRepos();
+  if (!login) emptyHint();
+}
+function emptyHint() {
+  if (!selected.size) show('Aucune classe sélectionnée', 'Cliquez sur une ou plusieurs classes à gauche pour afficher leurs élèves.');
+  else show('Choisissez un élève', 'Tapez son nom à gauche, puis ouvrez un fichier.');
+}
 
 async function api(p, params) {
   const r = await fetch('/api/' + p + (params ? '?' + new URLSearchParams(params) : ''));
@@ -129,7 +229,7 @@ function show(msg, sub) {
 function hue(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
 function avatar(l) {
   const h = hue(l), a = el('span', 'av', l.slice(0, 2).toLowerCase());
-  a.style.background = `linear-gradient(135deg,hsl(${h} 78% 58%),hsl(${(h + 45) % 360} 80% 50%))`;
+  a.style.background = `hsl(${h} 65% 52%)`;
   return a;
 }
 const EXT = {go:'#00acd7',py:'#3b7bbf',c:'#5c6bc0',h:'#8e6bd1',cpp:'#00599c',cc:'#00599c',hpp:'#8e6bd1',js:'#d4a017',ts:'#3178c6',java:'#e76f00',
@@ -189,12 +289,14 @@ function render(text, e) {
 /* students */
 function renderRepos() {
   const q = $('#q').value.trim().toLowerCase();
-  const list = all.filter(l => l.toLowerCase().includes(q));
-  $('#count').textContent = list.length + ' sur ' + all.length + ' repos';
+  const list = visible.filter(l => l.toLowerCase().includes(q));
+  const missing = allowed.size - visible.length;
+  $('#count').textContent = list.length + ' sur ' + visible.length + ' repos (classes choisies)'
+    + (missing > 0 ? ' · ' + missing + ' login' + (missing > 1 ? 's' : '') + ' sans repo' : '');
   const ul = $('#repos'); ul.replaceChildren();
   for (const l of list) {
     const li = el('li'), b = el('button');
-    b.append(avatar(l), el('span', '', l));
+    b.append(avatar(l), el('span', 'nm', l));
     b.setAttribute('aria-current', l === login);
     b.onclick = () => openRepo(l);
     li.append(b); ul.append(li);
@@ -203,6 +305,7 @@ function renderRepos() {
 }
 
 async function openRepo(l, file) {
+  if (!visible.includes(l)) return;
   login = l; current = null;
   renderRepos();
   try { paths = await api('tree', { login: l }); }
@@ -234,7 +337,20 @@ function renderTree() {
     }
     return frag;
   };
-  $('#fh').replaceChildren(avatar(login), el('span', '', login));
+  const dl = el('a', 'dl', '⬇ .tar.gz');
+  dl.href = '/api/archive?login=' + encodeURIComponent(login);
+  dl.download = login + '.tar.gz';
+  dl.title = 'Télécharger le repo en .tar.gz';
+  const acts = el('span', 'acts');
+  if (tracesBase) {
+    const tr = el('a', 'dl', 'Traces ↗');
+    tr.href = tracesBase + '?q=' + encodeURIComponent(login);
+    tr.target = '_blank'; tr.rel = 'noopener';
+    tr.title = 'Voir les traces de ' + login + ' sur la Forge';
+    acts.append(tr);
+  }
+  acts.append(dl);
+  $('#fh').replaceChildren(avatar(login), el('span', '', login), acts);
   $('#tree').replaceChildren(build(root, 0));
   markCurrent();
 }
@@ -272,16 +388,32 @@ $('#q').addEventListener('keydown', e => {
   if (e.key === 'Enter') { const l = renderRepos(); if (l.length) openRepo(l[0]); }
 });
 addEventListener('keydown', e => {
-  if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+  if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('#q').focus(); }
 });
 (async () => {
+  try { tracesBase = (await api('info')).traces || ''; } catch {}
   try { all = await api('repos'); }
   catch (e) { show('Impossible de lire les repos', e.message); return; }
-  renderRepos();
+  let src = '';
+  try {
+    const r = await fetch('groups.yml', {cache: 'no-store'});
+    if (r.ok) src = await r.text();
+  } catch {}
+  if (!parseGroups(src).length) { try { src = localStorage.getItem('tpi-groups-yml') || ''; } catch {} }
+  setGroups(src);
+  $('#gfile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const t = await f.text();
+    try { localStorage.setItem('tpi-groups-yml', t); } catch {}
+    setGroups(t); e.target.value = '';
+    if (!groups.length) noGroupsHint(); else if (!login) emptyHint();
+  };
   if (!all.length) return show('Aucun repo cloné', 'Clonez les repos depuis l’onglet Repos de tpi, puis rechargez cette page.');
+  if (!groups.length) return noGroupsHint();
+  if (!selected.size) return emptyHint();
   const h = decodeURIComponent(location.hash.slice(1)), i = h.indexOf('/');
   const l = i < 0 ? h : h.slice(0, i);
-  if (all.includes(l)) openRepo(l, i < 0 ? null : h.slice(i + 1));
+  if (visible.includes(l)) openRepo(l, i < 0 ? null : h.slice(i + 1));
 })();
 </script>
 </body>

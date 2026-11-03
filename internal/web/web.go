@@ -2,8 +2,12 @@
 package web
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"embed"
 	"encoding/json"
+	"errors"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +16,6 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
-	"errors"
 )
 
 //go:embed index.html
@@ -28,20 +31,23 @@ var skipDirs = map[string]bool{
 	"build": true, "__pycache__": true, ".venv": true, "dist": true,
 }
 
-type server struct{ root string }
+type server struct{ root, tracesURL string }
 
 // Start serves the repos found in root (one directory per login) on addr,
-// e.g. "127.0.0.1:0" for a free port. It returns the URL and a stop function.
-func Start(root, addr string) (string, func(), error) {
+// e.g. "127.0.0.1:0" for a free port. tracesURL is the Forge traces page of the
+// assignment; the page appends ?q=<login>. It returns the URL and a stop function.
+func Start(root, addr, tracesURL string) (string, func(), error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return "", nil, err
 	}
-	s := &server{root: root}
+	s := &server{root: root, tracesURL: tracesURL}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/info", s.info)
 	mux.HandleFunc("/api/repos", s.repos)
 	mux.HandleFunc("/api/tree", s.tree)
 	mux.HandleFunc("/api/file", s.file)
+	mux.HandleFunc("/api/archive", s.archive)
 	mux.Handle("/", http.FileServerFS(static))
 	srv := &http.Server{Handler: mux}
 	go srv.Serve(ln)
@@ -94,6 +100,10 @@ func (s *server) repoDir(login string) (string, bool) {
 		return "", false
 	}
 	return dir, true
+}
+
+func (s *server) info(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"traces": s.tracesURL})
 }
 
 func (s *server) repos(w http.ResponseWriter, r *http.Request) {
@@ -185,4 +195,69 @@ func (s *server) file(w http.ResponseWriter, r *http.Request) {
 		reply.Text = string(b)
 	}
 	writeJSON(w, reply)
+}
+
+// archive streams the repo of ?login= as a .tar.gz (the .git directory is
+// included, heavy build directories are not). Symlinks are stored, never followed.
+func (s *server) archive(w http.ResponseWriter, r *http.Request) {
+	login := r.URL.Query().Get("login")
+	dir, ok := s.repoDir(login)
+	if !ok {
+		http.Error(w, "unknown repo", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+login+`.tar.gz"`)
+	gz := gzip.NewWriter(w)
+	tw := tar.NewWriter(gz)
+	defer func() { tw.Close(); gz.Close() }()
+
+	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, p)
+		if err != nil || rel == "." {
+			return nil
+		}
+		if d.IsDir() && d.Name() != ".git" && skipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		mode := info.Mode()
+		if !mode.IsRegular() && !mode.IsDir() && mode&os.ModeSymlink == 0 {
+			return nil // sockets, devices...
+		}
+		link := ""
+		if mode&os.ModeSymlink != 0 {
+			if link, err = os.Readlink(p); err != nil {
+				return nil
+			}
+		}
+		h, err := tar.FileInfoHeader(info, link)
+		if err != nil {
+			return nil
+		}
+		h.Name = login + "/" + filepath.ToSlash(rel)
+		if mode.IsDir() {
+			h.Name += "/"
+		}
+		if err := tw.WriteHeader(h); err != nil {
+			return err // client disconnected
+		}
+		if mode.IsRegular() {
+			f, err := os.Open(p)
+			if err != nil {
+				return nil
+			}
+			defer f.Close()
+			if _, err := io.Copy(tw, f); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
