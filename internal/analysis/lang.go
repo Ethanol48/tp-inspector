@@ -2,6 +2,8 @@ package analysis
 
 import (
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -71,8 +73,79 @@ var pyPuncts = []string{"**=", "//=", ">>=", "<<=", "->", ":=", "**", "//", "<<"
 func isIdentStart(r rune) bool { return r == '_' || unicode.IsLetter(r) }
 func isIdentPart(r rune) bool  { return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) }
 
+// codeLineRes matches a comment line that looks like commented-out code
+// ("print(overload(3))", "x = f(a);", "}", "if (a < b)", "import os"…).
+var codeLineRes = []*regexp.Regexp{
+	// ends like a statement or a block: "x = f(a);", "{", "}"
+	regexp.MustCompile(`[;{}]$`),
+	// call: "print(overload(3))", "obj.run(a, b)", "p->next(x);"
+	regexp.MustCompile(`^[A-Za-z_][\w.>\[\]-]*\(.*\)[;:]?$`),
+	// C control flow
+	regexp.MustCompile(`^(else\s+)?(if|while|for|switch)\s*\(.*\)$`),
+	regexp.MustCompile(`^else$`),
+	// assignment: "x = 3", "a[i] += f(b)"; the right side is one token or
+	// contains a digit, quote or bracket, so that prose "x = the sum" is kept
+	regexp.MustCompile(`^[A-Za-z_][\w.\[\]>*-]*\s*([-+*/%|&^]|<<|>>)?=\s*([^\s=]\S*|.*[0-9"'()\[\]{}].*)$`),
+	// preprocessor
+	regexp.MustCompile(`^#\s*(include\s*[<"]|define\s+\w|ifn?def\s+\w|endif|pragma\s)`),
+	// Python
+	regexp.MustCompile(`^(def|class)\s+\w+.*:$`),
+	regexp.MustCompile(`^(else|try|finally)\s*:$`),
+	regexp.MustCompile(`^(if|elif|while|for|with|except)\b.*[()=<>!\[\]].*:$`),
+	regexp.MustCompile(`^(import\s+\w+|from\s+[\w.]+\s+import\s+\S+)`),
+	regexp.MustCompile(`^(pass|break|continue|return)$`),
+}
+
+// commentTextLines returns the lines of a comment token without its markers
+// (//, /*, */, #, leading *).
+func commentTextLines(text string) []string {
+	var out []string
+	for i, l := range strings.Split(text, "\n") {
+		l = strings.TrimSpace(l)
+		if i == 0 {
+			l = strings.TrimLeft(l, "/*#")
+		} else {
+			l = strings.TrimPrefix(l, "*")
+		}
+		l = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(l), "*/"))
+		if l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// isCommentedCode reports a comment that is code put aside, like
+// "//print(overload(3))": at least half of its lines look like code.
+// Doc comments (/** … */) are never commented-out code.
+func isCommentedCode(text string) bool {
+	if strings.HasPrefix(text, "/**") {
+		return false
+	}
+	lines := commentTextLines(text)
+	code := 0
+	for _, l := range lines {
+		for _, re := range codeLineRes {
+			if re.MatchString(l) {
+				code++
+				break
+			}
+		}
+	}
+	return len(lines) > 0 && 2*code >= len(lines)
+}
+
+// dropCommentedCode removes the comments that hold commented-out code: they
+// are neither comments nor code of the student.
+func dropCommentedCode(toks []token) []token {
+	return slices.DeleteFunc(toks, func(t token) bool {
+		return t.kind == tComment && isCommentedCode(t.text)
+	})
+}
+
 // lexC splits C source into tokens; comments and preprocessor lines are kept
-// as single tokens so callers can use or drop them.
+// as single tokens so callers can use or drop them. Commented-out code is
+// dropped.
 func lexC(src string) []token {
 	var out []token
 	line, i, atLineStart := 1, 0, true
@@ -161,11 +234,11 @@ func lexC(src string) []token {
 			out = append(out, token{tPunct, p, l, -1})
 		}
 	}
-	return out
+	return dropCommentedCode(out)
 }
 
 // lexPython splits Python source into tokens. The first token of each
-// logical line carries its indentation.
+// logical line carries its indentation. Commented-out code is dropped.
 func lexPython(src string) []token {
 	var out []token
 	line, i := 1, 0
@@ -288,7 +361,7 @@ func lexPython(src string) []token {
 			out = append(out, token{tPunct, p, l, tokIndent})
 		}
 	}
-	return out
+	return dropCommentedCode(out)
 }
 
 // isPyStringStart reports whether s starts a string literal, prefixes included.
