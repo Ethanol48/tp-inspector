@@ -3,12 +3,22 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"tp-inspector/internal/data"
 )
+
+// reposTickMsg fires every second while repos are being cloned, so that the
+// elapsed time keeps moving between two progress updates.
+type reposTickMsg time.Time
+
+// reposTick schedules the next reposTickMsg.
+func reposTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return reposTickMsg(t) })
+}
 
 // reposView clones the repos of the students marked in Ranking (or of the
 // class: --logins, else the whole promotion), at the tag of their graded
@@ -21,6 +31,9 @@ type reposView struct {
 	confirmAll int    // repos waiting for y to clone the class
 	locked     bool   // SSH key locked at the last render, for Keys
 	listed     bool   // A clones the --logins list rather than the promotion
+
+	cloneStart time.Time     // when the running clone was first seen (zero when idle)
+	lastClone  time.Duration // duration of the last finished clone
 }
 
 func (v *reposView) Title() string { return "Repos" }
@@ -148,10 +161,34 @@ func (v *reposView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+// trackClone keeps cloneStart / lastClone in sync with m.cloning. It is
+// called from View, so the timer starts when the view first renders a
+// running clone.
+func (v *reposView) trackClone(m *Model) {
+	switch {
+	case m.cloning && v.cloneStart.IsZero():
+		v.cloneStart = time.Now()
+	case !m.cloning && !v.cloneStart.IsZero():
+		v.lastClone = time.Since(v.cloneStart)
+		v.cloneStart = time.Time{}
+	}
+}
+
+// fmtDur formats a duration as 45s or 1m23s.
+func fmtDur(d time.Duration) string {
+	return d.Round(time.Second).String()
+}
+
 func (v *reposView) View(m *Model, w, h int) string {
+	v.trackClone(m)
 	if m.cloning {
 		p := m.cloneProg
-		line := sBold.Render("Cloning repos") + sDim.Render(fmt.Sprintf("  %d/%d", p.done, p.total))
+		elapsed := time.Since(v.cloneStart)
+		line := sBold.Render("Cloning repos") + sDim.Render(fmt.Sprintf("  %d/%d  ·  %s", p.done, p.total, fmtDur(elapsed)))
+		if p.done > 0 && p.done < p.total {
+			eta := time.Duration(float64(elapsed) / float64(p.done) * float64(p.total-p.done))
+			line += sDim.Render("  ·  ~" + fmtDur(eta) + " left")
+		}
 		return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center,
 			line+"\n"+bar(float64(p.done)/float64(max(1, p.total)), min(50, w-4), sAccent))
 	}
@@ -170,8 +207,12 @@ func (v *reposView) View(m *Model, w, h int) string {
 		analysed = sDim.Render(fmt.Sprintf("code analysed: %d repos, %d pairs sharing code (Code tab)", len(m.code.Repos), len(m.code.Pairs)))
 	}
 	v.locked, v.listed = m.sshLocked, len(m.list) > 0
+	last := ""
+	if v.lastClone > 0 {
+		last = sDim.Render(" · last clone took " + fmtDur(v.lastClone))
+	}
 	head := []string{
-		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded %s into %s", len(m.cloneSelection()), m.gradedSD(), m.repoRoot())),
+		sDim.Render(fmt.Sprintf("%d marked · cloned at the tag of their graded %s into %s", len(m.cloneSelection()), m.gradedSD(), m.repoRoot())) + last,
 		sDim.Render("A clones "+m.classLabel()+": shared code is only found between repos on disk. ") + analysed,
 	}
 	if m.cloneErr != "" {
