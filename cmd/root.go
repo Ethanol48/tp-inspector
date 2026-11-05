@@ -68,14 +68,15 @@ func Execute() {
 
 func init() {
 	pf := rootCmd.PersistentFlags()
-	pf.StringVar(&cacheDir, "cache", data.DefaultCacheRoot(), "cache `directory`")
+	cacheDir = data.DefaultCacheRoot()
+	pf.Var(named(&cacheDir, "directory"), "cache", "cache directory")
 	pf.BoolVar(&refresh, "refresh", false, "ignore cached API responses")
 	_ = rootCmd.MarkPersistentFlagDirname("cache")
 
 	f := rootCmd.Flags()
-	f.StringVar(&tpFlag, "tp", "", "assignment `slug` (alternative to the argument)")
-	f.StringVar(&tenant, "tenant", "", "tenant `slug` (default: looked up in your activities)")
-	f.StringVar(&loginsFile, "logins", "", "`file` of logins, one per line: your group")
+	f.Var(named(&tpFlag, "slug"), "tp", "assignment slug (alternative to the argument)")
+	f.Var(named(&tenant, "slug"), "tenant", "tenant slug (default: looked up in your activities)")
+	f.Var(named(&loginsFile, "file"), "logins", "file of logins, one per line: your group")
 	f.BoolVar(&selectGroup, "select-group", false, "pick your group among the CRI classes at start (F later)")
 	registerCompletion(rootCmd, "tp", completeSlug)
 	registerCompletion(rootCmd, "tenant", completeTenant)
@@ -170,3 +171,17 @@ func readLogins(path, tpSlug string) ([]string, error) {
 	}
 	return out, nil
 }
+
+// namedString is a string flag whose value is shown as name in the help
+// ("--logins file"). The usual `name` in the usage text would also show its
+// backticks in the descriptions of shell completion.
+type namedString struct {
+	p    *string
+	name string
+}
+
+func named(p *string, name string) *namedString { return &namedString{p, name} }
+
+func (n *namedString) String() string     { return *n.p }
+func (n *namedString) Set(v string) error { *n.p = v; return nil }
+func (n *namedString) Type() string       { return n.name }

@@ -314,17 +314,28 @@ func (ds *Dataset) student(groupSlug, prefix string) *Student {
 	return st
 }
 
+// ActivitiesTTL is how long the cached list of activities (activities.json)
+// is used before being fetched again.
+const ActivitiesTTL = 24 * time.Hour
+
 func (l *Loader) resolveActivity(slug tp.Slug) (forge.Activity, error) {
 	if l.Tenant != "" {
 		return forge.Activity{URI: l.Tenant + "/" + slug.Raw, Slug: slug.Raw, TenantSlug: l.Tenant, Name: slug.Raw}, nil
 	}
+	// The list is fetched again when it is a day old (new assignments every
+	// week, also offered by shell completion) or lacks the slug; a stale
+	// copy that has it is kept if operator cannot be reached.
 	var acts []forge.Activity
-	if _, ok := l.Cache.ReadJSON("activities.json", &acts); !ok || findActivity(acts, slug.Raw) == nil {
-		var err error
-		if acts, err = l.Client.Activities(); err != nil {
+	t, ok := l.Cache.ReadJSON("activities.json", &acts)
+	if !ok || time.Since(t) > ActivitiesTTL || findActivity(acts, slug.Raw) == nil {
+		fresh, err := l.Client.Activities()
+		switch {
+		case err == nil:
+			acts = fresh
+			_ = l.Cache.WriteJSON("activities.json", acts)
+		case findActivity(acts, slug.Raw) == nil:
 			return forge.Activity{}, err
 		}
-		_ = l.Cache.WriteJSON("activities.json", acts)
 	}
 	if a := findActivity(acts, slug.Raw); a != nil {
 		return *a, nil

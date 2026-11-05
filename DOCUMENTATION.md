@@ -111,22 +111,10 @@ TUI.
 
 ### Shell completion
 
-`tpi completion <shell>` prints a completion script: subcommands, flags and
-assignment slugs. Slugs come from the cache (the activities of your last runs
-and the assignments on disk, with their names), so completion is instant and
-never logs in; run `tpi` once on any assignment to fill it. `--tenant`
-completes the tenants of those activities.
-
-```sh
-# zsh: once in ~/.zshrc (needs `autoload -U compinit; compinit`)
-source <(tpi completion zsh)
-# bash (needs the bash-completion package)
-source <(tpi completion bash)
-# fish
-tpi completion fish | source
-```
-
-`tpi completion <shell> --help` shows how to install it permanently instead.
+`tpi completion <shell>` prints a completion script for bash, zsh, fish or
+PowerShell: commands, flags, and assignment slugs with their names, read from
+the cache (instant, never logs in). Installation for each shell, where the
+slugs come from and troubleshooting: [COMPLETIONS.md](COMPLETIONS.md).
 
 ### Assignment slug
 
@@ -465,7 +453,8 @@ so `r` can remove them (after a `y` confirmation).
 
 `~/.cache/tpi/`:
 
-- `activities.json` : your activities;
+- `activities.json` : your activities, fetched again when a day old (or
+  when it lacks the slug you open); also used by shell completion;
 - `<slug>/groups.json`, `sds.json`, `submissions.json`,
   `assignment-<name>.json` (submission windows) : API responses,
   reused until `R` / `--refresh`;

@@ -146,21 +146,10 @@ prog-205-p-02-2030  -- PROG-205-P-02-2030 - Flying machines
 ```
 
 It also completes the commands, the flags (`tpi --<TAB>`), `--tenant`,
-`--logins` files and the paths of `tpi dump`. To enable it, install `tpi` in
-your `PATH` (`go install ./cmd/tpi`) and add to your `~/.zshrc`:
+`--logins` files and the paths of `tpi dump`.
 
-```sh
-autoload -U compinit && compinit   # if your config does not do it already
-source <(tpi completion zsh)
-```
-
-For bash (needs the `bash-completion` package) use
-`source <(tpi completion bash)` in `~/.bashrc`; for fish,
-`tpi completion fish | source`.
-
-The slugs come from the cache, so completion is instant and never asks you to
-log in: they are the activities you can access and the assignments already
-downloaded, known after your first `tpi <slug>`.
+To set it up in your shell (zsh, bash, fish or PowerShell), follow
+[COMPLETIONS.md](COMPLETIONS.md).
 
 ## More
 
