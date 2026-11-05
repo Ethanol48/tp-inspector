@@ -132,14 +132,41 @@ To free disk space later: `tpi clean`.
 
 Scores are **hints**, not proof: always read the code before concluding.
 
+## 4. Tab completion
+
+No need to remember slugs: `tpi` completes them, with the name of each
+assignment.
+
+```console
+$ tpi prog-205-p-0<TAB>
+…
+prog-205-p-01-2030  -- PROG-205-P-01-2030 - Porco's new mission
+prog-205-p-02-2030  -- PROG-205-P-02-2030 - Flying machines
+…
+```
+
+It also completes the commands, the flags (`tpi --<TAB>`), `--tenant`,
+`--logins` files and the paths of `tpi dump`. To enable it, install `tpi` in
+your `PATH` (`go install ./cmd/tpi`) and add to your `~/.zshrc`:
+
+```sh
+autoload -U compinit && compinit   # if your config does not do it already
+source <(tpi completion zsh)
+```
+
+For bash (needs the `bash-completion` package) use
+`source <(tpi completion bash)` in `~/.bashrc`; for fish,
+`tpi completion fish | source`.
+
+The slugs come from the cache, so completion is instant and never asks you to
+log in: they are the activities you can access and the assignments already
+downloaded, known after your first `tpi <slug>`.
+
 ## More
 
 [DOCUMENTATION.md](DOCUMENTATION.md) covers every flag (`--logins`,
 `--select-group`, `--refresh`…), tab, key, the CRI classes, the suspicion
 scoring, repo cloning, the cache, `tpi clean` and notes on the operator API.
-
-Tab completion of commands, flags and slugs: add `source <(tpi completion zsh)`
-to your `~/.zshrc` (or `bash` / `fish`, see `tpi completion --help`).
 
 ## Contribute
 
