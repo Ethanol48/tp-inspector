@@ -63,7 +63,8 @@ func Analyze(dirs map[string]string, progress func(done, total int)) *CodeResult
 		}
 	}
 	res.Pairs = CompareRepos(rs)
-	res.AI = AIScores(rs, history)
+	// A repo sharing code with one whose commits credit an AI tool is raised too.
+	res.AI = PropagateAgent(AIScores(rs, history), res.Pairs)
 	return res
 }
 

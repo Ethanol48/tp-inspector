@@ -33,14 +33,26 @@ type FuncFlag struct {
 // AIScore says how much a repo looks AI-generated. Hints only: some students
 // do write documented, defensive code.
 type AIScore struct {
-	Score    float64 // 1 - (1-Style)(1-Tells), at least AgentScore when a tool is credited
+	Score    float64 // (1 - (1-Style)(1-Tells)(1-Deep)) × (1 - HumanDiscount × Human), at least AgentScore when a tool is credited
 	Style    float64 // how far the style is from the class (needs MinBaseline repos)
+	Deep     float64 // how far the deeper traits are from the class: polished comments, checked allocations, type hints, flawless formatting…
 	Tells    float64 // absolute tells: typography, doc tags, history
 	Agent    string  // AI tool credited in the commits (Co-Authored-By: Claude…), "" if none
 	Signals  []Signal
 	TopFuncs []FuncFlag
 	Commits  int
+	// Human is the evidence that the code was written by hand: leftovers
+	// nobody generates on purpose. It lowers the score by up to HumanDiscount.
+	Human      float64
+	HumanNotes []string
+	// LinkedTo lists the repos crediting an AI tool that share code with this
+	// one (see PropagateAgent), strongest link first.
+	LinkedTo []string
 }
+
+// HumanDiscount is the largest share of the score that evidence of
+// hand-written code can remove. It never applies to a repo crediting an AI tool.
+const HumanDiscount = 0.3
 
 // Level of the score.
 func (s AIScore) Level() Level { return LevelOf(s.Score) }
@@ -84,6 +96,35 @@ var (
 	// chatWeakRe matches wording that generators overuse, in English and in
 	// French. One match means nothing; several do.
 	chatWeakRe = regexp.MustCompile(`(?i)(note that|keep in mind|for (simplicity|brevity|clarity|demonstration)|in a real[- ]world|production[- ]ready|best practices?|edge.?cases?|gracefully|robust|comprehensive|leverag|utiliz|seamless|under the hood|cas limites?|robuste|bonnes pratiques|il est (important|essentiel) de|afin de (garantir|assurer))`)
+)
+
+var (
+	// todoRe matches the notes to self that generators rarely leave.
+	todoRe = regexp.MustCompile(`(?i)\b(todo|fixme|xxx|hack)\b`)
+
+	// pyHintRes match a Python def with annotated parameters or return type.
+	pyHintRes = []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*->`),
+		regexp.MustCompile(`(?m)^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\w\s*:\s*[A-Za-z_]`),
+	}
+
+	// Formatting slips: a comma glued to the next token, and the two ways of
+	// spacing keywords and assignments (only the minority one is a slip).
+	commaTightRe   = regexp.MustCompile(`,[^\s)\]}]`)
+	kwTightRe      = regexp.MustCompile(`\b(?:if|for|while|switch)\(`)
+	kwSpacedRe     = regexp.MustCompile(`\b(?:if|for|while|switch) \(`)
+	assignTightRe  = regexp.MustCompile(`[\w\])]=[^=\s]`)
+	assignSpacedRe = regexp.MustCompile(`[\w\])] = [^=\s]`)
+
+	// allocCalls are the calls whose result must be checked.
+	allocCalls = wordSet("malloc calloc realloc strdup strndup fopen opendir")
+
+	// debugStrings are the messages left behind when debugging by printing.
+	debugStrings = wordSet("here toto titi tata aaa aaaa ici coucou wtf lol yo")
+
+	// lazyCommits are commit subjects nobody generates (those of 3 characters
+	// or less are lazy too).
+	lazyCommits = wordSet("update updates test tests commit final last stuff truc maj fixes fixed change changes commit1 commit2 push save work")
 )
 
 // AgentScore is the minimum AI score of a repo whose commits credit an AI
@@ -174,6 +215,78 @@ func (s AIScore) WithAgentFiles(paths []string) AIScore {
 	s.Signals = append([]Signal{sg}, s.Signals...)
 	s.Score = math.Max(s.Score, AgentFileScore)
 	return s
+}
+
+// LinkedAgentScore is the score a repo reaches, at most, by sharing code with
+// a repo whose commits credit an AI tool. Below AgentScore: the tool credits
+// itself in the one, the other only shares code with it.
+const LinkedAgentScore = 0.85
+
+// PropagateAgent raises the AI score of the repos sharing code with a repo
+// whose commits credit an AI tool: the code is, or comes from, generated code.
+// ai comes from AIScores and pairs from CompareRepos; the scores are returned
+// in a new map.
+//
+// The strength of a link follows the pair's score (which already weighs the
+// amount of code shared and ignores the subject's skeleton): nothing below
+// 0.35, full from 0.8. Only the direct neighbours of a credited repo are
+// raised, never the neighbours of those: a copy ring must not snowball. The
+// direction of the copy is unknown, so the reasons only say the code is shared.
+func PropagateAgent(ai map[string]AIScore, pairs []CodePair) map[string]AIScore {
+	type link struct {
+		src  string
+		pair CodePair
+		w    float64
+	}
+	links := map[string][]link{}
+	add := func(dst, src string, p CodePair, w float64) {
+		a, ok := ai[src]
+		if !ok || a.Agent == "" {
+			return
+		}
+		if d, ok := ai[dst]; !ok || d.Agent != "" { // unknown, or credited itself already
+			return
+		}
+		links[dst] = append(links[dst], link{src, p, w})
+	}
+	for _, p := range pairs {
+		w := clamp01((p.Score - 0.3) / 0.5)
+		if w < 0.1 { // too weak a link to say anything
+			continue
+		}
+		add(p.A, p.B, p, w)
+		add(p.B, p.A, p, w)
+	}
+
+	out := make(map[string]AIScore, len(ai))
+	for l, s := range ai {
+		out[l] = s
+	}
+	for dst, ls := range links {
+		sort.SliceStable(ls, func(i, j int) bool {
+			if ls[i].w != ls[j].w {
+				return ls[i].w > ls[j].w
+			}
+			return ls[i].src < ls[j].src
+		})
+		s := out[dst]
+		for _, k := range ls[:min(5, len(ls))] {
+			s.LinkedTo = append(s.LinkedTo, k.src)
+		}
+		top := ls[0]
+		sg := Signal{
+			Name: "shares code with an AI-credited repo",
+			Detail: fmt.Sprintf("shares code with %s, whose commits credit %s: %s (pair score %.0f%%)",
+				top.src, ai[top.src].Agent, top.pair.Reason(), top.pair.Score*100),
+		}
+		if len(ls) > 1 {
+			sg.Detail += fmt.Sprintf("; %s in all", plural(len(ls), "such repo", "such repos"))
+		}
+		s.Signals = append([]Signal{sg}, s.Signals...)
+		s.Score = 1 - (1-s.Score)*(1-LinkedAgentScore*top.w)
+		out[dst] = s
+	}
+	return out
 }
 
 // typographic reports characters that keyboards seldom produce but
@@ -300,6 +413,236 @@ func guard(f *Func) bool {
 	return false
 }
 
+// ---- deeper measures ------------------------------------------------------
+//
+// Each returns the value of one measure for a repo, and false when the repo
+// holds too little to measure it. They only mean something against the class.
+
+// polishedShare is the share of short comments (3 words or more) written as
+// a capitalised sentence with its full stop: generators do it every time,
+// students rarely.
+func polishedShare(lines []string) (float64, bool) {
+	n, p := 0, 0
+	for _, l := range lines {
+		if len(strings.Fields(l)) < 3 {
+			continue
+		}
+		n++
+		r := []rune(l)
+		if unicode.IsUpper(r[0]) && strings.ContainsRune(".:!", r[len(r)-1]) {
+			p++
+		}
+	}
+	if n < 8 {
+		return 0, false
+	}
+	return float64(p) / float64(n), true
+}
+
+// checkedAllocs counts the allocating calls of a C function and how many have
+// a NULL check close by (just before: "if (!(p = malloc(…)))", or after).
+func checkedAllocs(f *Func) (allocs, checked int) {
+	b := f.Body
+	for i, t := range b {
+		if t.kind != tIdent || !allocCalls[t.text] || i+1 >= len(b) || b[i+1].text != "(" {
+			continue
+		}
+		allocs++
+		for _, x := range b[max(0, i-6):min(len(b), i+30)] {
+			if x.text == "NULL" || x.text == "!" || x.text == "assert" || x.text == "perror" {
+				checked++
+				break
+			}
+		}
+	}
+	return allocs, checked
+}
+
+// checkedShare is the share of malloc / fopen calls whose result is checked.
+// Generators check every one; students often forget.
+func checkedShare(r *Repo) (float64, bool) {
+	allocs, checked := 0, 0
+	for i := range r.Funcs {
+		if f := &r.Funcs[i]; f.Lang == LangC {
+			a, c := checkedAllocs(f)
+			allocs += a
+			checked += c
+		}
+	}
+	if allocs < 3 {
+		return 0, false
+	}
+	return float64(checked) / float64(allocs), true
+}
+
+// typedShare is the share of Python functions with type annotations.
+func typedShare(r *Repo) (float64, bool) {
+	n, typed := 0, 0
+	for i := range r.Funcs {
+		f := &r.Funcs[i]
+		if f.Lang != LangPython {
+			continue
+		}
+		n++
+		for _, re := range pyHintRes {
+			if re.MatchString(f.Raw) {
+				typed++
+				break
+			}
+		}
+	}
+	if n < 3 {
+		return 0, false
+	}
+	return float64(typed) / float64(n), true
+}
+
+// cParams returns the parameter list of a C function, when it has pointer or
+// array parameters (the only ones const matters for).
+func cParams(f *Func) (string, bool) {
+	i := strings.Index(f.Raw, "{")
+	if i < 0 {
+		return "", false
+	}
+	h := f.Raw[:i]
+	if k := strings.LastIndex(h, f.Name+"("); k >= 0 {
+		h = h[k:]
+	} else if k := strings.LastIndex(h, f.Name); k >= 0 {
+		h = h[k:]
+	}
+	open, end := strings.Index(h, "("), strings.Index(h, ")")
+	if open < 0 || end < open {
+		return "", false
+	}
+	p := strings.TrimSpace(h[open+1 : end])
+	if !strings.ContainsAny(p, "*[") {
+		return "", false
+	}
+	return p, true
+}
+
+// constShare is the share of C functions with pointer parameters that declare
+// some of them const.
+func constShare(r *Repo) (float64, bool) {
+	n, c := 0, 0
+	for i := range r.Funcs {
+		f := &r.Funcs[i]
+		if f.Lang != LangC {
+			continue
+		}
+		if p, ok := cParams(f); ok {
+			n++
+			if strings.Contains(p, "const") {
+				c++
+			}
+		}
+	}
+	if n < 5 {
+		return 0, false
+	}
+	return float64(c) / float64(n), true
+}
+
+// formatSlips returns minus the share of lines with a formatting slip:
+// trailing spaces, a comma glued to the next token, the minority way of
+// spacing keywords and assignments. Generated code has almost none. Negative,
+// so that, as for every measure, higher means more generated.
+func formatSlips(r *Repo) (float64, bool) {
+	lines, slips := 0, 0
+	kwT, kwS, asT, asS := 0, 0, 0, 0
+	for i := range r.Funcs {
+		f := &r.Funcs[i]
+		ext := ".c"
+		if f.Lang == LangPython {
+			ext = ".py"
+		}
+		for _, l := range strings.Split(f.Raw, "\n") {
+			if strings.TrimSpace(l) == "" {
+				continue
+			}
+			lines++
+			if strings.TrimRight(l, " \t\r") != l {
+				slips++
+			}
+			code := dupStrRe.ReplaceAllString(stripComment(l, ext), `""`)
+			if commaTightRe.MatchString(code) {
+				slips++
+			}
+			if f.Lang == LangC {
+				kwT += len(kwTightRe.FindAllString(code, -1))
+				kwS += len(kwSpacedRe.FindAllString(code, -1))
+				asT += len(assignTightRe.FindAllString(code, -1))
+				asS += len(assignSpacedRe.FindAllString(code, -1))
+			}
+		}
+	}
+	if lines < 100 {
+		return 0, false
+	}
+	slips += min(kwT, kwS) + min(asT, asS)
+	return -float64(slips) / float64(lines), true
+}
+
+// subjectVariation returns minus the coefficient of variation of the commit
+// subjects' length: generated histories are strangely even.
+func subjectVariation(h []repos.Commit) (float64, bool) {
+	if len(h) < 6 {
+		return 0, false
+	}
+	sum := 0.0
+	for _, c := range h {
+		sum += float64(len(strings.Fields(c.Subject)))
+	}
+	mean := sum / float64(len(h))
+	if mean < 3 { // throwaway subjects are a human tell, not an even history
+		return 0, false
+	}
+	sq := 0.0
+	for _, c := range h {
+		d := float64(len(strings.Fields(c.Subject))) - mean
+		sq += d * d
+	}
+	return -math.Sqrt(sq/float64(len(h))) / mean, true
+}
+
+// flaggedShare is the share of functions combining several generated markers
+// (the class-independent ones of flagFunc).
+func flaggedShare(r *Repo) (float64, bool) {
+	if len(r.Funcs) < 5 {
+		return 0, false
+	}
+	n := 0
+	for i := range r.Funcs {
+		if flagFunc(&r.Funcs[i], 0).Score >= 2 {
+			n++
+		}
+	}
+	return float64(n) / float64(len(r.Funcs)), true
+}
+
+// plainMessage reduces a string literal to its bare lowercase text.
+func plainMessage(s string) string {
+	s = strings.TrimSuffix(strings.Trim(s, "\"'` "), `\n`)
+	return strings.ToLower(strings.Trim(s, " .!?:-_"))
+}
+
+// countDebug counts the strings that are debugging leftovers ("here", "toto").
+func countDebug(ss []string) int {
+	n := 0
+	for _, s := range ss {
+		if m := plainMessage(s); debugStrings[m] || strings.HasPrefix(m, "debug") {
+			n++
+		}
+	}
+	return n
+}
+
+// lazyCommit reports a throwaway commit subject ("wip", "fix", "aaa", "update").
+func lazyCommit(subject string) bool {
+	m := strings.ToLower(strings.TrimSpace(subject))
+	return len(m) <= 3 || lazyCommits[m]
+}
+
 // feature is one style measure compared across the class.
 type feature struct {
 	name   string
@@ -364,6 +707,39 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 	fUniform.minSD = 0.1
 	features := []*feature{fComments, fSentences, fDocs, fGuards, fIdent, fRare, fFew, fBig,
 		fNarrate, fCommented, fEnglish, fMsgs, fUniform}
+
+	// Deeper measures, scored apart from the style ones (Deep): what generators
+	// do systematically and students only now and then.
+	fPolished := mk("polished comments", func(v, med float64) string {
+		return fmt.Sprintf("%s of the short comments are capitalised and end with a full stop (promo median %s)", pct(v), pct(med))
+	})
+	fPolished.minSD = 0.1
+	fChecked := mk("checked allocations", func(v, med float64) string {
+		return fmt.Sprintf("%s of malloc / fopen calls are followed by a NULL check (promo median %s)", pct(v), pct(med))
+	})
+	fChecked.minSD = 0.15
+	fTyped := mk("type hints", func(v, med float64) string {
+		return fmt.Sprintf("%s of the Python functions are type-annotated (promo median %s)", pct(v), pct(med))
+	})
+	fTyped.minSD = 0.15
+	fConst := mk("const parameters", func(v, med float64) string {
+		return fmt.Sprintf("%s of the C functions with pointer parameters declare them const (promo median %s)", pct(v), pct(med))
+	})
+	fConst.minSD = 0.15
+	fRegular := mk("flawless formatting", func(v, med float64) string {
+		return fmt.Sprintf("%.1f%% of lines show a formatting slip: trailing space, glued comma, mixed spacing (promo median %.1f%%)", -v*100, -med*100)
+	})
+	fRegular.minSD = 0.02
+	fEven := mk("even commit messages", func(v, med float64) string {
+		return fmt.Sprintf("commit subjects have a very similar length (variation %.2f, promo median %.2f)", -v, -med)
+	})
+	fEven.minSD = 0.1
+	fFlagged := mk("generated-looking functions", func(v, med float64) string {
+		return fmt.Sprintf("%s of the functions combine several generated markers (promo median %s)", pct(v), pct(med))
+	})
+	fFlagged.minSD = 0.1
+	deep := []*feature{fPolished, fChecked, fTyped, fConst, fRegular, fEven, fFlagged}
+	all := append(slices.Clone(features), deep...)
 
 	// Constructs: keywords, operators and library calls (called, not defined).
 	constructs := map[string]map[string]bool{}
@@ -501,11 +877,34 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 				fBig.values[l] = float64(biggest) / float64(total)
 			}
 		}
+
+		// Deeper measures.
+		if v, ok := polishedShare(lines); ok {
+			fPolished.values[l] = v
+		}
+		if v, ok := checkedShare(r); ok {
+			fChecked.values[l] = v
+		}
+		if v, ok := typedShare(r); ok {
+			fTyped.values[l] = v
+		}
+		if v, ok := constShare(r); ok {
+			fConst.values[l] = v
+		}
+		if v, ok := formatSlips(r); ok {
+			fRegular.values[l] = v
+		}
+		if v, ok := subjectVariation(history[l]); ok {
+			fEven.values[l] = v
+		}
+		if v, ok := flaggedShare(r); ok {
+			fFlagged.values[l] = v
+		}
 	}
 
 	type stat struct{ mean, sd, med float64 }
 	stats := map[*feature]stat{}
-	for _, f := range features {
+	for _, f := range all {
 		var vs []float64
 		for _, v := range f.values {
 			vs = append(vs, v)
@@ -531,31 +930,38 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 	for _, r := range rs {
 		l := r.Login
 		var sc AIScore
-		var zs []float64
-		for _, f := range features {
-			s, ok := stats[f]
-			v, has := f.values[l]
-			sd := math.Max(s.sd, f.minSD)
-			if !ok || !has || sd < 1e-9 {
-				continue
+		// zScore compares the repo with the class on a set of measures: the mean
+		// of its three highest z-scores, squashed to 0..1. The measures it
+		// stands out on become signals.
+		zScore := func(fs []*feature) float64 {
+			var zs []float64
+			for _, f := range fs {
+				s, ok := stats[f]
+				v, has := f.values[l]
+				sd := math.Max(s.sd, f.minSD)
+				if !ok || !has || sd < 1e-9 {
+					continue
+				}
+				z := (v - s.mean) / sd
+				if z > 0 {
+					zs = append(zs, math.Min(z, 4))
+				}
+				if z >= 1.5 {
+					sc.Signals = append(sc.Signals, Signal{Name: f.name, Detail: f.detail(v, s.med), Z: z})
+				}
 			}
-			z := (v - s.mean) / sd
-			if z > 0 {
-				zs = append(zs, math.Min(z, 4))
+			sort.Sort(sort.Reverse(sort.Float64Slice(zs)))
+			if len(zs) == 0 {
+				return 0
 			}
-			if z >= 1.5 {
-				sc.Signals = append(sc.Signals, Signal{Name: f.name, Detail: f.detail(v, s.med), Z: z})
-			}
-		}
-		sort.Sort(sort.Reverse(sort.Float64Slice(zs)))
-		if len(zs) > 0 {
-			top := zs[:min(3, len(zs))]
 			sum := 0.0
-			for _, z := range top {
+			for _, z := range zs[:min(3, len(zs))] {
 				sum += z
 			}
-			sc.Style = squash(sum/3, 2)
+			return squash(sum/3, 2)
 		}
+		sc.Style = zScore(features)
+		sc.Deep = zScore(deep)
 
 		// Absolute tells, meaningful even without a class baseline.
 		tells := 0.0
@@ -656,7 +1062,32 @@ func AIScores(rs []*Repo, history map[string][]repos.Commit) map[string]AIScore 
 			}
 		}
 		sc.Tells = squash(tells, 1.5)
-		sc.Score = 1 - (1-sc.Style)*(1-sc.Tells)
+
+		// Evidence of hand-written code: leftovers nobody generates on purpose.
+		// They lower the score a little, never past HumanDiscount.
+		human := 0.0
+		if k := countDebug(r.Strings); k >= 2 {
+			human++
+			sc.HumanNotes = append(sc.HumanNotes, fmt.Sprintf("%d debugging leftovers in strings (\"here\", \"toto\"…)", k))
+		}
+		if k := countMatch(todoRe, clines); k >= 2 {
+			human += 0.5
+			sc.HumanNotes = append(sc.HumanNotes, fmt.Sprintf("%d TODO / FIXME comments", k))
+		}
+		if h := history[l]; len(h) >= 4 {
+			lazy := 0
+			for _, c := range h {
+				if lazyCommit(c.Subject) {
+					lazy++
+				}
+			}
+			if lazy >= 2 && 4*lazy >= len(h) {
+				human++
+				sc.HumanNotes = append(sc.HumanNotes, fmt.Sprintf("%d of %d commit messages are throwaway (\"wip\", \"fix\", \"aaa\")", lazy, len(h)))
+			}
+		}
+		sc.Human = squash(human, 1.5)
+		sc.Score = (1 - (1-sc.Style)*(1-sc.Tells)*(1-sc.Deep)) * (1 - HumanDiscount*sc.Human)
 		sort.SliceStable(sc.Signals, func(i, j int) bool { return sc.Signals[i].Z > sc.Signals[j].Z })
 		if agent != nil {
 			sc.Score = math.Max(sc.Score, AgentScore)
@@ -677,58 +1108,64 @@ func hasSignal(ss []Signal, name string) bool {
 	return false
 }
 
+// flagFunc scores how generated a function looks, with the reasons. The
+// long-names marker needs the class's threshold: longIdent <= 0 turns it off.
+func flagFunc(f *Func, longIdent float64) FuncFlag {
+	var ff FuncFlag
+	if docTagRe.MatchString(f.Doc) {
+		ff.Score++
+		ff.Why = append(ff.Why, "structured doc comment")
+	}
+	s := 0
+	for _, l := range commentLines(f.Comments) {
+		if sentence(l) {
+			s++
+		}
+	}
+	if s >= 2 {
+		ff.Score++
+		ff.Why = append(ff.Why, plural(s, "sentence comment", "sentence comments"))
+	}
+	if t := countTypo(f.Comments) + countTypo([]string{f.Raw}); t > 0 {
+		ff.Score++
+		ff.Why = append(ff.Why, "typographic characters")
+	}
+	if guard(f) {
+		ff.Score += 0.5
+		ff.Why = append(ff.Why, "guard clause")
+	}
+	fl := commentLines(f.Comments)
+	if countMatch(chatStrongRe, fl) > 0 {
+		ff.Score++
+		ff.Why = append(ff.Why, "assistant phrasing")
+	}
+	if countMatch(narrateRe, fl) >= 2 {
+		ff.Score += 0.5
+		ff.Why = append(ff.Why, "narrating comments")
+	}
+	if countMatch(chatWeakRe, fl) >= 2 {
+		ff.Score += 0.5
+		ff.Why = append(ff.Why, "generated vocabulary")
+	}
+	if longIdent > 0 && len(f.Idents) > 0 {
+		tot := 0
+		for _, id := range f.Idents {
+			tot += len(id)
+		}
+		if float64(tot)/float64(len(f.Idents)) > longIdent {
+			ff.Score += 0.5
+			ff.Why = append(ff.Why, "long names")
+		}
+	}
+	return ff
+}
+
 // topFuncs returns the functions of a repo that look the most generated.
 func topFuncs(r *Repo, longIdent float64) []FuncFlag {
 	var out []FuncFlag
 	for i := range r.Funcs {
 		f := &r.Funcs[i]
-		var ff FuncFlag
-		if docTagRe.MatchString(f.Doc) {
-			ff.Score++
-			ff.Why = append(ff.Why, "structured doc comment")
-		}
-		s := 0
-		for _, l := range commentLines(f.Comments) {
-			if sentence(l) {
-				s++
-			}
-		}
-		if s >= 2 {
-			ff.Score++
-			ff.Why = append(ff.Why, plural(s, "sentence comment", "sentence comments"))
-		}
-		if t := countTypo(f.Comments) + countTypo([]string{f.Raw}); t > 0 {
-			ff.Score++
-			ff.Why = append(ff.Why, "typographic characters")
-		}
-		if guard(f) {
-			ff.Score += 0.5
-			ff.Why = append(ff.Why, "guard clause")
-		}
-		fl := commentLines(f.Comments)
-		if countMatch(chatStrongRe, fl) > 0 {
-			ff.Score++
-			ff.Why = append(ff.Why, "assistant phrasing")
-		}
-		if countMatch(narrateRe, fl) >= 2 {
-			ff.Score += 0.5
-			ff.Why = append(ff.Why, "narrating comments")
-		}
-		if countMatch(chatWeakRe, fl) >= 2 {
-			ff.Score += 0.5
-			ff.Why = append(ff.Why, "generated vocabulary")
-		}
-		if longIdent > 0 && len(f.Idents) > 0 {
-			tot := 0
-			for _, id := range f.Idents {
-				tot += len(id)
-			}
-			if float64(tot)/float64(len(f.Idents)) > longIdent {
-				ff.Score += 0.5
-				ff.Why = append(ff.Why, "long names")
-			}
-		}
-		if ff.Score >= 1 {
+		if ff := flagFunc(f, longIdent); ff.Score >= 1 {
 			ff.Func = f
 			out = append(out, ff)
 		}
