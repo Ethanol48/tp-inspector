@@ -18,51 +18,100 @@ import (
 	"time"
 )
 
-// Same OAuth2 PKCE flow as `poulpy auth` (poulpy/auth.py): the CRI only allows
-// poulpy's client id to redirect to localhost:2097, and tokens are stored in
-// ~/.cri-tokens so poulpy and tpi share them.
 const (
-	clientID     = "825885"
-	callbackPort = 2097
 	authorizeURL = "https://cri.epita.fr/authorize"
 	tokenURL     = "https://cri.epita.fr/token"
 )
 
-var redirectURI = fmt.Sprintf("http://localhost:%d/complete/epita/", callbackPort)
-
 type tokens struct {
 	IDToken      string `json:"id_token"`
+	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	ExpiresAt    int64  `json:"expires_at"` // added by tpi: the access token is opaque
 }
 
-// Auth provides valid JWTs, refreshing or logging in when needed.
+// Auth provides valid tokens, refreshing or logging in when needed.
 // Log messages go to Log (stderr by default), so Ensure must run before the TUI.
 type Auth struct {
-	File string
-	Log  func(string)
+	File         string
+	Log          func(string)
+	ClientID     string
+	ClientSecret string // empty for poulpy's public client
+	Scope        string
+	Port         int  // loopback port of the redirect URI, fixed by the client
+	Access       bool // Token returns the access token instead of the ID token
 
 	mu  sync.Mutex
 	tok tokens
 }
 
+// NewAuth is the operator login: same OAuth2 PKCE flow as `poulpy auth`
+// (poulpy/auth.py). The CRI only allows poulpy's client id to redirect to
+// localhost:2097, and tokens are stored in ~/.cri-tokens so poulpy and tpi
+// share them.
 func NewAuth() *Auth {
 	home, _ := os.UserHomeDir()
 	return &Auth{
-		File: filepath.Join(home, ".cri-tokens"),
-		Log:  func(s string) { fmt.Fprintln(os.Stderr, s) },
+		File:     filepath.Join(home, ".cri-tokens"),
+		Log:      func(s string) { fmt.Fprintln(os.Stderr, s) },
+		ClientID: "825885",
+		Scope:    "openid epita roles profile email",
+		Port:     2097,
 	}
 }
 
-// Ensure makes sure a non-expired JWT is available, interactively if needed.
+// NewCRIAuth is the login for the CRI API (/api/v2), which needs the "api"
+// scope. poulpy's client cannot request it, so it defaults to the Forge ID
+// public test client (development only, id and secret published in
+// https://docs.forge.epita.fr/services/forge-id/oidc#public-test-client).
+// TPI_CRI_CLIENT_ID / TPI_CRI_CLIENT_SECRET override it; the client must
+// allow the redirect URI http://localhost:8080/complete/epita/.
+func NewCRIAuth() (*Auth, error) {
+	id, secret := os.Getenv("TPI_CRI_CLIENT_ID"), os.Getenv("TPI_CRI_CLIENT_SECRET")
+	if id == "" {
+		id, secret = "125070", "f6ff8d394e6185d41834b19210979b897852680cf34700ae4ecb24ea"
+	}
+	home, _ := os.UserHomeDir()
+	return &Auth{
+		File:         filepath.Join(home, ".cri-api-tokens"),
+		Log:          func(s string) { fmt.Fprintln(os.Stderr, s) },
+		ClientID:     id,
+		ClientSecret: secret,
+		Scope:        "openid api",
+		Port:         8080,
+		Access:       true,
+	}, nil
+}
+
+func (a *Auth) redirectURI() string {
+	return fmt.Sprintf("http://localhost:%d/complete/epita/", a.Port)
+}
+
+func (a *Auth) current() string {
+	if a.Access {
+		return a.tok.AccessToken
+	}
+	return a.tok.IDToken
+}
+
+func (a *Auth) valid() bool {
+	if a.Access {
+		return a.tok.AccessToken != "" && time.Until(time.Unix(a.tok.ExpiresAt, 0)) > time.Minute
+	}
+	return a.tok.IDToken != "" && !expired(a.tok.IDToken)
+}
+
+// Ensure makes sure a non-expired token is available, interactively if needed.
 func (a *Auth) Ensure() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.tok.IDToken == "" {
+	if a.current() == "" {
 		if b, err := os.ReadFile(a.File); err == nil {
 			_ = json.Unmarshal(b, &a.tok)
 		}
 	}
-	if a.tok.IDToken != "" && !expired(a.tok.IDToken) {
+	if a.valid() {
 		return nil
 	}
 	if a.tok.RefreshToken != "" {
@@ -74,21 +123,21 @@ func (a *Auth) Ensure() error {
 	return a.login()
 }
 
-// Token returns the current JWT.
+// Token returns the current bearer token.
 func (a *Auth) Token() (string, error) {
 	if err := a.Ensure(); err != nil {
 		return "", err
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.tok.IDToken, nil
+	return a.current(), nil
 }
 
 // Invalidate forces a refresh on the next Token call (after a 401).
 func (a *Auth) Invalidate(old string) {
 	a.mu.Lock()
-	if a.tok.IDToken == old {
-		a.tok.IDToken = ""
+	if a.current() == old {
+		a.tok.IDToken, a.tok.AccessToken = "", ""
 	}
 	a.mu.Unlock()
 }
@@ -139,16 +188,29 @@ func expired(jwt string) bool {
 	return time.Until(time.Unix(claims.Exp, 0)) < time.Minute
 }
 
+// store saves the token response as is (poulpy reads the same file), plus
+// expires_at so the opaque access token can be checked without a request.
 func (a *Auth) store(raw []byte) error {
 	var t tokens
-	if err := json.Unmarshal(raw, &t); err != nil || t.IDToken == "" || t.RefreshToken == "" {
+	var all map[string]any
+	if err := json.Unmarshal(raw, &t); err != nil || t.IDToken == "" || t.RefreshToken == "" || json.Unmarshal(raw, &all) != nil {
 		return fmt.Errorf("unexpected token response: %.200s", raw)
 	}
+	t.ExpiresAt = time.Now().Unix() + t.ExpiresIn
+	all["expires_at"] = t.ExpiresAt
+	b, err := json.Marshal(all)
+	if err != nil {
+		return err
+	}
 	a.tok = t
-	return os.WriteFile(a.File, raw, 0o600)
+	return os.WriteFile(a.File, b, 0o600)
 }
 
 func (a *Auth) postToken(form url.Values) error {
+	form.Set("client_id", a.ClientID)
+	if a.ClientSecret != "" {
+		form.Set("client_secret", a.ClientSecret)
+	}
 	resp, err := http.PostForm(tokenURL, form)
 	if err != nil {
 		return err
@@ -168,7 +230,6 @@ func (a *Auth) refresh() error {
 	return a.postToken(url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {a.tok.RefreshToken},
-		"client_id":     {clientID},
 	})
 }
 
@@ -183,17 +244,17 @@ func (a *Auth) login() error {
 
 	q := url.Values{
 		"response_type":         {"code"},
-		"scope":                 {"openid epita roles profile email"},
-		"client_id":             {clientID},
+		"scope":                 {a.Scope},
+		"client_id":             {a.ClientID},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
-		"redirect_uri":          {redirectURI},
+		"redirect_uri":          {a.redirectURI()},
 	}
 	authURL := authorizeURL + "?" + q.Encode()
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", callbackPort))
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", a.Port))
 	if err != nil {
-		return fmt.Errorf("cannot listen on port %d: %w", callbackPort, err)
+		return fmt.Errorf("cannot listen on port %d: %w", a.Port, err)
 	}
 	codes := make(chan string, 1)
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +274,7 @@ func (a *Auth) login() error {
 	go srv.Serve(ln)
 	defer srv.Close()
 
-	local := fmt.Sprintf("http://localhost:%d", callbackPort)
+	local := fmt.Sprintf("http://localhost:%d", a.Port)
 	a.Log(">>> Log in at: " + local)
 	_ = exec.Command("xdg-open", local).Start()
 
@@ -226,8 +287,7 @@ func (a *Auth) login() error {
 	if err := a.postToken(url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
-		"redirect_uri":  {redirectURI},
-		"client_id":     {clientID},
+		"redirect_uri":  {a.redirectURI()},
 		"code_verifier": {verifier},
 	}); err != nil {
 		return err

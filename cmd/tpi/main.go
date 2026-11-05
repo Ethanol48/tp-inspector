@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/term"
 
+	"tp-inspector/internal/cri"
 	"tp-inspector/internal/data"
 	"tp-inspector/internal/forge"
 	"tp-inspector/internal/tp"
@@ -25,11 +26,15 @@ Usage:
   tpi [flags] <slug>          e.g. tpi prog-205-p-01-2030
   echo <slug> | tpi [flags]
   tpi --logins suspects.txt prog-205-p-01-2030
-  tpi login                   log in to the CRI (stores ~/.cri-tokens)
+  tpi --select-group prog-206-p-01-2030   pick your classes first (F later)
+  tpi login                   log in to operator and to the CRI API
+                              (stores ~/.cri-tokens and ~/.cri-api-tokens)
   tpi clean                   choose cached TP data / cloned repos to delete
   tpi clean --repos [-y]      delete every cloned repo
   tpi clean --all [-y]        delete the whole cache (TP data and repos)
   tpi dump <path> [k=v...]    raw GET on the operator API (debugging)
+  tpi get-group [<slug>]      pick CRI classes, print their members' logins
+                              (experimental; <slug> keeps the classes that fit it)
 
 Flags must come before the slug.
 
@@ -44,6 +49,7 @@ func main() {
 	tenant := flag.String("tenant", "", "tenant slug (default: looked up in your activities)")
 	refresh := flag.Bool("refresh", false, "ignore cached API responses")
 	cacheDir := flag.String("cache", data.DefaultCacheRoot(), "cache directory")
+	selectGroup := flag.Bool("select-group", false, "choose your group among the CRI classes that fit the activity when the TUI opens (F does it later)")
 	loginsFile := flag.String("logins", "", "text file of logins (one per line, # comments): your group; Overview and Ranking start on them (toggle with f), the Group tab compares them with the promo, A in Repos clones them")
 	flag.Parse()
 
@@ -56,8 +62,22 @@ func main() {
 		return
 	}
 	if len(args) > 0 && args[0] == "login" {
+		// Two sessions: operator only accepts poulpy's client, which cannot
+		// get the "api" scope of the CRI API (classes for F).
 		exitOn(auth.Ensure())
-		fmt.Fprintln(os.Stderr, "valid token stored in", auth.File)
+		fmt.Fprintln(os.Stderr, "operator: valid token stored in", auth.File)
+		criAuth, err := forge.NewCRIAuth()
+		exitOn(err)
+		exitOn(criAuth.Ensure())
+		fmt.Fprintln(os.Stderr, "CRI API: valid token stored in", criAuth.File)
+		return
+	}
+	criAuth, err := forge.NewCRIAuth()
+	exitOn(err)
+	criSrc := cri.NewSource(cri.NewClient(criAuth), *cacheDir, *refresh)
+
+	if len(args) > 0 && args[0] == "get-group" {
+		exitOn(getGroup(criAuth, criSrc, args[1:]))
 		return
 	}
 	if len(args) > 1 && args[0] == "dump" {
@@ -87,11 +107,18 @@ func main() {
 		exitOn(err)
 	}
 
-	// Log in before the TUI takes over the terminal.
+	// Log in before the TUI takes over the terminal. The CRI API login is
+	// only needed for F: later, it opens the browser without printing.
 	exitOn(auth.Ensure())
+	if *selectGroup {
+		exitOn(criAuth.Ensure())
+	}
+	criAuth.Log = func(string) {}
 
 	loader := &data.Loader{Client: client, Cache: &data.Cache{Root: *cacheDir, Refresh: *refresh}, Tenant: *tenant}
-	exitOn(ui.Run(ui.New(slug, loader, list)))
+	m := ui.New(slug, loader, list)
+	m.CRI, m.SelectGroup = criSrc, *selectGroup
+	exitOn(ui.Run(m))
 }
 
 // readLogins reads one login per line; blank lines and # comments are
@@ -193,6 +220,28 @@ func confirm(q string) bool {
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	a := strings.ToLower(strings.TrimSpace(line))
 	return a == "y" || a == "yes"
+}
+
+// getGroup implements `tpi get-group [<slug>]`: the logins of the chosen
+// classes go to stdout, one per line, so `tpi get-group > group.txt` feeds
+// --logins. With a slug, only the classes that fit the activity are offered.
+func getGroup(auth *forge.Auth, src *cri.Source, args []string) error {
+	var filter cri.Filter
+	if len(args) > 0 {
+		slug, err := tp.Parse(args[0])
+		if err != nil {
+			return err
+		}
+		filter = cri.ActivityFilter(slug.Year, slug.Bimester)
+	}
+	if err := auth.Ensure(); err != nil {
+		return err
+	}
+	logins, err := ui.RunGetGroup(src, filter)
+	for _, l := range logins {
+		fmt.Println(l)
+	}
+	return err
 }
 
 func exitOn(err error) {

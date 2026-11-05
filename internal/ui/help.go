@@ -44,6 +44,7 @@ func (v *helpView) View(m *Model, w, h int) string {
 		k("↑/↓", "move; pgup/pgdn, g/G top/bottom"),
 		k("enter", "open details / comparison"),
 		k("esc q", "back / quit"),
+		k("F", "select your group from the CRI classes of this activity's semester (like --logins)"),
 		k("m", "switch submission definition (submit / submission ↔ archi)"),
 		k("R", "reload from the API (ignores the cache)"),
 		k("e", "export risk, code pairs and AI scores to CSV"),

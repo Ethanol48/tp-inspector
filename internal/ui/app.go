@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"tp-inspector/internal/analysis"
+	"tp-inspector/internal/cri"
 	"tp-inspector/internal/data"
 	"tp-inspector/internal/forge"
 	"tp-inspector/internal/repos"
@@ -84,7 +85,13 @@ type Model struct {
 	events   chan tea.Msg
 
 	marked map[string]bool // selected by hand with space in Ranking
-	list   map[string]bool // logins from --logins
+	list   map[string]bool // logins from --logins or the classes chosen with F
+
+	// CRI gives the classes for F; SelectGroup opens the picker once loaded.
+	CRI         *cri.Source
+	SelectGroup bool
+	catalog     *cri.Catalog
+	groupLabel  string // classes chosen with F, "" for --logins
 
 	stopWeb func()
 	webURL  string // adresse du serveur web, vide s'il n'a pas pu démarrer
@@ -244,6 +251,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					unknown = append(unknown, l)
 				}
 			}
+			if m.SelectGroup {
+				m.SelectGroup = false
+				analyze = tea.Batch(analyze, m.openGroupPicker())
+			}
 			if len(unknown) > 0 {
 				sort.Strings(unknown)
 				return m, tea.Batch(analyze, m.setStatus(fmt.Sprintf("%d logins from the list are not in this assignment: %s", len(unknown), strings.Join(unknown, ", "))))
@@ -254,6 +265,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, analyze
 		}
 		return m, nil
+	case catalogMsg, membersMsg:
+		return m, m.handleGroupMsg(msg)
 	case jobTraceMsg:
 		delete(m.jobBusy, msg.jobID)
 		if msg.err != nil {
@@ -442,6 +455,8 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 				m.active = i
 			}
 			return nil
+		case "F":
+			return m.openGroupPicker()
 		}
 	}
 	return top.Update(m, k)
@@ -520,7 +535,11 @@ func (m *Model) View() string {
 // hints (help, back/quit) always stay.
 func (m *Model) footer(top view) string {
 	sep := sDim.Render(" · ")
-	optional := append(top.Keys(), keyHint("m", "definition"), keyHint("e", "export"))
+	optional := top.Keys()
+	if len(m.stack) == 0 && m.CRI != nil {
+		optional = append(optional, keyHint("F", "group"))
+	}
+	optional = append(optional, keyHint("m", "definition"), keyHint("e", "export"))
 	if m.webURL != "" {
 		optional = append(optional, keyHint("w", m.webURL))
 	}
@@ -694,6 +713,9 @@ func (m *Model) repoLogins() []string {
 
 // classLabel names what A clones.
 func (m *Model) classLabel() string {
+	if m.groupLabel != "" {
+		return "your group (" + m.groupLabel + " + marked)"
+	}
 	if len(m.list) > 0 {
 		return "your group (--logins + marked)"
 	}
@@ -712,7 +734,7 @@ func (m *Model) nothingToClone() string {
 	if len(m.list) > 0 {
 		who = m.groupStudents()
 		if len(who) == 0 {
-			return "None of the --logins students is in this assignment"
+			return "None of the students of your group is in this assignment"
 		}
 	}
 	pushed, other, remote := 0, 0, 0
