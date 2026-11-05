@@ -6,6 +6,7 @@ Full reference of `tpi`. For a quick start (compile, log in, run), see the
 - [Building](#building)
 - [Authentication](#authentication)
 - [Usage](#usage)
+- [CRI classes](#cri-classes)
 - [Tabs](#tabs)
 - [Keys](#keys)
 - [Scoring](#scoring)
@@ -48,21 +49,36 @@ Make sure `~/go/bin` (or `$(go env GOPATH)/bin`) is in your `PATH`, then run
 
 ```sh
 go vet ./...                 # static checks
-go test ./...                # unit tests (slug, trace parser, scoring, cleanup)
+go test ./...                # unit tests (slug, trace parser, scoring, cleanup, CRI classes)
 gofmt -l .                   # lists badly formatted files (gofmt -w . fixes them)
 ```
 
 ## Authentication
 
-`tpi` implements the same OAuth2 PKCE login as `poulpy auth` (same CRI client
-id, callback on `localhost:2097`) and shares the token file `~/.cri-tokens`, so
-a session opened with either tool works for both. Expired tokens are
-refreshed automatically; when the refresh token is also expired, `tpi` prints
-a URL and opens the browser before starting the UI.
+`tpi` keeps two CRI sessions:
+
+| Session  | Used for                                   | Client                                  | Callback          | Token file          |
+| -------- | ------------------------------------------ | --------------------------------------- | ----------------- | ------------------- |
+| operator | traces, submissions, groups of the activity | poulpy's (`825885`)                     | `localhost:2097`  | `~/.cri-tokens`     |
+| CRI API  | classes and their members (`F`)            | Forge ID public test client (`125070`) | `localhost:8080`  | `~/.cri-api-tokens` |
+
+The operator session is the same OAuth2 PKCE login as `poulpy auth` and
+shares its token file, so a session opened with either tool works for both.
+The CRI API needs the `api` scope, which poulpy's client cannot request, and
+operator refuses the tokens of any other client: hence two logins.
+`TPI_CRI_CLIENT_ID` / `TPI_CRI_CLIENT_SECRET` replace the test client (it
+must allow the callback `http://localhost:8080/complete/epita/`).
+
+Expired tokens are refreshed automatically. When the refresh token is also
+expired, `tpi` opens the login page: before starting the UI for operator,
+when it first needs the classes for the CRI API.
 
 ```sh
-tpi login        # log in explicitly (optional)
+tpi login        # log in to both explicitly (optional)
 ```
+
+If you are already logged in to the CRI in your browser, the second page
+only redirects.
 
 ## Usage
 
@@ -71,6 +87,8 @@ tpi [flags] <slug>
 echo <slug> | tpi [flags]
 tpi login
 tpi --logins logins.txt prog-205-p-01-2030
+tpi --select-group prog-206-p-01-2030
+tpi get-group [<slug>]
 tpi clean [--all | --repos] [-y]
 tpi dump <path> [key=value...]
 ```
@@ -83,7 +101,8 @@ positional argument).
 | `--tp SLUG`     |                | Assignment slug, alternative to the positional argument or stdin.                                                                                           |
 | `--tenant SLUG` | looked up      | Tenant of the activity (`epita-prepa-computer-science`). By default it is found in the list of activities you can access.                                   |
 | `--logins FILE` |                | Text file of logins: your **group**. The Overview and Ranking start on them (toggle with `f` in each tab), Tests adds their pass rate, Code shows only their pairs, `A` in Repos clones them. |
-| `--refresh`     | off            | Ignore cached API responses (same as pressing `R`).                                                                                                         |
+| `--select-group` | off           | Open the [class picker](#cri-classes) as soon as the assignment is loaded; its members become the group, like `--logins` (`F` does it later). |
+| `--refresh`     | off            | Ignore cached API responses (same as pressing `R`), and the cached CRI classes (`R` keeps those).                                                                         |
 | `--cache DIR`   | `~/.cache/tpi` | Cache directory.                                                                                                                                            |
 
 ### Assignment slug
@@ -121,6 +140,44 @@ URL-encoded:
 tpi dump /api/activities/activity/epita-prepa-computer-science%2Fprog-205-p-01-2030
 tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore pageNum=0 pageSize=10
 ```
+
+## CRI classes
+
+The group can come from the CRI classes instead of a logins file: `F` in any
+tab (or `--select-group` at start) opens a picker.
+
+1. **Campus**: Lyon, Paris, Rennes, Strasbourg, Toulouse.
+2. **Promo**: SUP, SPE, ING1, apprentices, CYB1… (skipped when only one fits).
+3. **Classes**: `space` marks several, `enter` applies them.
+
+Only the classes that can take the activity are offered: its semester comes
+from the year and bimester of the slug, with 4 bimesters a year and 2 per
+semester (`prog-205` / `prog-206` → S3, `207` / `208` → S4). When the
+bimester does not fall in the year, both semesters of the year are kept.
+Shifted classes (`S3#`) count as their semester. `a` shows every class
+anyway; `x` drops the group and goes back to the whole promo.
+
+The members of the chosen classes then work exactly like `--logins`: the
+Overview and Ranking switch to them, `A` in Repos clones them, and the
+members not in the assignment are listed in the status bar.
+
+`tpi get-group [<slug>]` opens the same picker on its own and prints the
+members' logins on stdout (the interface is drawn on stderr), e.g.
+`tpi get-group prog-206-p-01-2030 > group.txt`. It is experimental.
+
+The classes are read from the CRI API (`https://cri.epita.fr/api/v2`):
+`/campus/`, `/groups/?kind=class` and `/groups/<slug>/members/`, and cached
+(see [Cache](#cache)). Class slugs read
+`<program>-<promo>-<semester>[-<track>…]-<campus>-<class>`, e.g.
+`prepa-spe-s3-prs-a1` or `ing-app-ing1-s5-prs-cyb-c1`.
+
+Notes on the CRI API:
+
+- every token needs the `api` scope, otherwise `403 insufficient_scope`; it
+  is not granted by default and must be enabled on the OAuth client;
+- HTTP Basic is reserved to service accounts;
+- an ID token as bearer gives a `500`: use the access token (opaque, valid
+  one hour).
 
 ## Tabs
 
@@ -208,6 +265,7 @@ rest when the terminal is narrow; `?` always lists everything.
 | `q`                              | Back / quit                                                                                                                                                       |
 | `m`                              | Switch submission definition (`submit` / `submission` ↔ `archi`)                                                                                                  |
 | `R`                              | Reload from the API, ignoring the cache                                                                                                                           |
+| `F`                              | Pick your group among the [CRI classes](#cri-classes) of the activity's semester, like `--logins` (`space` marks, `enter` applies, `a` every class, `x` clears)    |
 | `e`                              | Export the risk of every student, the code pairs and the AI scores to `tpi-<slug>-<def>-suspects.csv` in the current directory (`kind` is `risk`, `code` or `ai`) |
 | `?`                              | Open / close the help (`↑/↓` scroll it)                                                                                                                           |
 | **Overview**                     |                                                                                                                                                                   |
@@ -390,7 +448,11 @@ so `r` can remove them (after a `y` confirmation).
   reused until `R` / `--refresh`;
 - `<slug>/traces/<job-id>.xml` : traces of graded and opened tags, immutable and always reused;
 - `<slug>/repos/<login>` : cloned repos;
-- `students/<login>-<promo>.json` : student histories downloaded with `H`.
+- `students/<login>-<promo>.json` : student histories downloaded with `H`;
+- `cri/classes.json` : CRI campuses and classes, reused for 7 days;
+- `cri/members/<class>.json` : members of a class, reused for 24 hours.
+
+`--refresh` also downloads the CRI classes again; `R` does not.
 
 The last submission per group is always fetched fresh (its trace URLs are
 short-lived presigned links).
@@ -410,12 +472,14 @@ their size:
   the next time the assignment is opened;
 - **repos** — the cloned repositories.
 
+The CRI classes and their members show up as `cri`.
+
 `space` selects an item, `a` selects everything, `r` every repos item, `n`
 nothing, `d` deletes the selection after a `y` confirmation, `q` quits.
 
 `--repos` and `--all` ask `[y/N]` on the terminal first (the default is no);
-add `-y` to skip the question in scripts. Your CRI login (`~/.cri-tokens`)
-and settings (`~/.config/tpi`) are never touched, and nothing outside the
+add `-y` to skip the question in scripts. Your CRI sessions (`~/.cri-tokens`,
+`~/.cri-api-tokens`) and settings (`~/.config/tpi`) are never touched, and nothing outside the
 cache directory can be deleted. `--cache DIR` works with `clean` too:
 `tpi --cache DIR clean`.
 

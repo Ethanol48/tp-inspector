@@ -76,6 +76,16 @@ Those students (plus any you mark with `space`) form **your group**:
 - Tests adds the group pass rate and the gap with the promo (`s` sorts by gap);
 - Ranking and Code show only the group; `f` switches to the whole promo.
 
+Instead of a file, you can pick your classes from the CRI: `--select-group`
+opens the picker as soon as the assignment is loaded, and `F` opens it at any
+time. It shows the campuses, then only the classes of the activity's semester
+(`prog-206-p-01-2030` → S3 classes: SPE, not SUP nor ING1); `space` marks
+several classes, `enter` makes their members your group.
+
+```sh
+./tpi --select-group prog-206-p-01-2030
+```
+
 Suspicion is shown as a level (**high** / **medium** / **low**) with a reason
 in words. It combines three signals, `1 − (1−risk)(1−code)(1−AI)`, so a
 student with several signals ranks above one with a single strong signal:
@@ -112,6 +122,7 @@ The first load downloads the submissions and traces of the promo (cached in
 | `enter` on a student  | Their trace as a tree, their tags, their risk / AI / code signals                                                  |
 | `A` in Repos          | Clone your `--logins` group (else the promotion) and analyse the code (`K` unlocks a passphrase-protected SSH key) |
 | `H` on a student      | Their grades in every TP / exam, by academic year                                                                  |
+| `F`                   | Pick your group among the CRI classes of the activity's semester (like `--logins`)                                 |
 | `s` / `/`             | Sort / filter the Ranking                                                                                          |
 | `space`, then `c`     | Mark two students and compare them                                                                                 |
 | `?`                   | Every key                                                                                                          |
@@ -124,8 +135,8 @@ Scores are **hints**, not proof: always read the code before concluding.
 ## More
 
 [DOCUMENTATION.md](DOCUMENTATION.md) covers every flag (`--logins`,
-`--refresh`…), tab, key, the suspicion scoring, repo cloning, the cache,
-`tpi clean` and notes on the operator API.
+`--select-group`, `--refresh`…), tab, key, the CRI classes, the suspicion
+scoring, repo cloning, the cache, `tpi clean` and notes on the operator API.
 
 ## Contribute
 
