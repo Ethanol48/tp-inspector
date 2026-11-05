@@ -77,8 +77,8 @@ func init() {
 	f.StringVar(&tenant, "tenant", "", "tenant `slug` (default: looked up in your activities)")
 	f.StringVar(&loginsFile, "logins", "", "`file` of logins, one per line: your group")
 	f.BoolVar(&selectGroup, "select-group", false, "pick your group among the CRI classes at start (F later)")
-	_ = rootCmd.RegisterFlagCompletionFunc("tp", completeSlug)
-	_ = rootCmd.RegisterFlagCompletionFunc("tenant", completeTenant)
+	registerCompletion(rootCmd, "tp", completeSlug)
+	registerCompletion(rootCmd, "tenant", completeTenant)
 	_ = rootCmd.MarkFlagFilename("logins")
 }
 

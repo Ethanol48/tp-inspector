@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"log"
 	"os"
 	"sort"
 	"strings"
@@ -13,6 +14,45 @@ import (
 )
 
 // Completion only reads the cache: it must be instant and never log in.
+
+// registerCompletion registers the completion of a flag's values, warning
+// instead of failing when the flag does not exist.
+func registerCompletion(cmd *cobra.Command, flag string, fn cobra.CompletionFunc) {
+	if err := cmd.RegisterFlagCompletionFunc(flag, fn); err != nil {
+		log.Printf("warning: could not register completion for --%s: %v", flag, err)
+	}
+}
+
+// apiPaths are the operator API endpoints used by tpi, for `tpi dump`.
+var apiPaths = []string{
+	"/api/activities\tyour activities",
+	"/api/activities/activity/\t<tenant>%2F<slug>",
+	"/api/activities/assignment/\t<tenant>%2F<slug>/…",
+	"/api/activities/groups/\t<tenant>%2F<slug>/…",
+	"/api/traces/\t<tenant>%2F<slug>/explore",
+}
+
+// completeAPIPath offers apiPaths for the path of `tpi dump`, then the
+// cached activities as <tenant>%2F<slug> after them, without a trailing
+// space so the path can be continued.
+func completeAPIPath(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	dir := cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+	for _, p := range apiPaths {
+		base, _, _ := strings.Cut(p, "\t")
+		if !strings.HasSuffix(base, "/") || !strings.HasPrefix(toComplete, base) {
+			continue
+		}
+		desc := map[string]string{}
+		for _, a := range cachedActivities() {
+			desc[base+a.TenantSlug+"%2F"+a.Slug] = a.Name
+		}
+		return withPrefix(desc, toComplete), dir
+	}
+	return apiPaths, dir
+}
 
 // cachedActivities returns the activities saved by a previous run.
 func cachedActivities() []forge.Activity {

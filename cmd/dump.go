@@ -19,10 +19,8 @@ indented when it is JSON. The key=value pairs become the query string.`,
 	Example: `  # path parameters containing / must be URL-encoded
   tpi dump /api/activities/activity/epita-prepa-computer-science%2Fprog-205-p-01-2030
   tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore pageNum=0 pageSize=10`,
-	Args: cobra.MinimumNArgs(1),
-	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	},
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeAPIPath,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		auth := forge.NewAuth()
 		if err := auth.Ensure(); err != nil {
