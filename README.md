@@ -28,7 +28,7 @@ be in your `PATH`).
 ## 2. Log in
 
 ```sh
-./tpi login
+tpi login
 ```
 
 1. `tpi` prints `>>> Log in at: http://…` and opens that page in your browser
@@ -50,7 +50,7 @@ The sessions are saved in `~/.cri-tokens` (shared with `poulpy`) and
 Pass the slug of an assignment:
 
 ```sh
-./tpi prog-205-p-01-2030
+tpi prog-205-p-01-2030
 ```
 
 `prog-205-p-01-2030` = subject `prog`, year `2`, bimester `05`, kind `p` (TP;
@@ -60,7 +60,7 @@ To focus on some students only (your class/group), pass a text file of logins
 with `--logins`:
 
 ```sh
-./tpi --logins my-group.txt prog-205-p-01-2030
+tpi --logins my-group.txt prog-205-p-01-2030
 ```
 
 ```
@@ -83,7 +83,7 @@ time. It shows the campuses, then only the classes of the activity's semester
 several classes, `enter` makes their members your group.
 
 ```sh
-./tpi --select-group prog-206-p-01-2030
+tpi --select-group prog-206-p-01-2030
 ```
 
 Suspicion is shown as a level (**high** / **medium** / **low**) with a reason
