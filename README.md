@@ -146,3 +146,14 @@ scoring, repo cloning, the cache, `tpi clean` and notes on the operator API.
 
 [MIT](LICENSE): free to use, modify and share, as long as the copyright notice
 is kept.
+
+## Thank you!!
+
+Thanks to all the assistants who made tpi better:
+
+<p>
+  <a href="https://github.com/EvanBaron"><img src="https://github.com/EvanBaron.png?size=100" width="64" height="64" alt="EvanBaron" title="EvanBaron"></a>
+  <a href="https://github.com/FlkDPis"><img src="https://github.com/FlkDPis.png?size=100" width="64" height="64" alt="FlkDPis" title="FlkDPis"></a>
+  <a href="https://github.com/Carl-Excoffier"><img src="https://github.com/Carl-Excoffier.png?size=100" width="64" height="64" alt="Carl-Excoffier" title="Carl-Excoffier"></a>
+  <a href="https://github.com/Nathzxu"><img src="https://github.com/Nathzxu.png?size=100" width="64" height="64" alt="Nathzxu" title="Nathzxu"></a>
+</p>
