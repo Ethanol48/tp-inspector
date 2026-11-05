@@ -52,8 +52,11 @@ func (c *CleanModel) scan() {
 	for _, e := range entries {
 		if e.DataBytes > 0 {
 			detail := fmt.Sprintf("%d traces + API responses", e.Traces)
-			if e.Slug == data.HistoriesDir {
+			switch e.Slug {
+			case data.HistoriesDir:
 				detail = "student histories (H)"
+			case data.CRIDir:
+				detail = "CRI classes and their members (F)"
 			}
 			c.items = append(c.items, cleanItem{slug: e.Slug, bytes: e.DataBytes, detail: detail})
 		}

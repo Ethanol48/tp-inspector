@@ -37,9 +37,13 @@ be in your `PATH`).
 3. The page says _"OK - you can close this tab now."_ and the terminal prints
    `OK: logged in.`
 
-The session is saved in `~/.cri-tokens` (shared with `poulpy`) and refreshed
-automatically. When it fully expires, `tpi` opens the login page again
-before starting.
+It does this twice: once for operator, once for the CRI API (the classes
+behind `F`), which needs another OAuth client. If you are already logged in
+to the CRI in your browser, the second page only redirects.
+
+The sessions are saved in `~/.cri-tokens` (shared with `poulpy`) and
+`~/.cri-api-tokens`, and refreshed automatically. When one fully expires,
+`tpi` opens the login page again when it needs it.
 
 ## 3. Use it
 

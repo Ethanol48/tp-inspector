@@ -60,6 +60,9 @@ type History struct {
 // HistoriesDir is the cache folder of the downloaded student histories.
 const HistoriesDir = "students"
 
+// CRIDir is the cache folder of the CRI classes and their members.
+const CRIDir = "cri"
+
 func historyName(login string, promo int) string {
 	return path.Join(HistoriesDir, fmt.Sprintf("%s-%d.json", login, promo))
 }
