@@ -91,10 +91,11 @@ tpi --select-group prog-206-p-01-2030
 tpi get-group [<slug>]
 tpi clean [--all | --repos] [-y]
 tpi dump <path> [key=value...]
+tpi completion bash|zsh|fish|powershell
 ```
 
-Flags must come **before** the slug (Go flag parsing stops at the first
-positional argument).
+Flags can go before or after the slug. `tpi help <command>` (or
+`tpi <command> --help`) describes each command.
 
 | Flag            | Default        | Description                                                                                                                                                 |
 | --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -104,6 +105,28 @@ positional argument).
 | `--select-group` | off           | Open the [class picker](#cri-classes) as soon as the assignment is loaded; its members become the group, like `--logins` (`F` does it later). |
 | `--refresh`     | off            | Ignore cached API responses (same as pressing `R`), and the cached CRI classes (`R` keeps those).                                                                         |
 | `--cache DIR`   | `~/.cache/tpi` | Cache directory.                                                                                                                                            |
+
+`--refresh` and `--cache` work with every command; the others only open the
+TUI.
+
+### Shell completion
+
+`tpi completion <shell>` prints a completion script: subcommands, flags and
+assignment slugs. Slugs come from the cache (the activities of your last runs
+and the assignments on disk, with their names), so completion is instant and
+never logs in; run `tpi` once on any assignment to fill it. `--tenant`
+completes the tenants of those activities.
+
+```sh
+# zsh: once in ~/.zshrc (needs `autoload -U compinit; compinit`)
+source <(tpi completion zsh)
+# bash (needs the bash-completion package)
+source <(tpi completion bash)
+# fish
+tpi completion fish | source
+```
+
+`tpi completion <shell> --help` shows how to install it permanently instead.
 
 ### Assignment slug
 
@@ -507,7 +530,8 @@ Quirks found while building this, not in the Swagger spec:
 ## Layout
 
 ```
-cmd/tpi/                 CLI entry point
+cmd/tpi/                 entry point (main)
+cmd/                     command line (Cobra): one file per command, completion
 internal/tp/             slug parsing
 internal/forge/          OAuth login and operator API client
 internal/data/           dataset loading and disk cache

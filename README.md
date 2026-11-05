@@ -57,7 +57,7 @@ Pass the slug of an assignment:
 `e` exam, `r` retake), number `01`, promo `2030`.
 
 To focus on some students only (your class/group), pass a text file of logins
-with `--logins` (before the slug):
+with `--logins`:
 
 ```sh
 ./tpi --logins my-group.txt prog-205-p-01-2030
@@ -137,6 +137,9 @@ Scores are **hints**, not proof: always read the code before concluding.
 [DOCUMENTATION.md](DOCUMENTATION.md) covers every flag (`--logins`,
 `--select-group`, `--refresh`…), tab, key, the CRI classes, the suspicion
 scoring, repo cloning, the cache, `tpi clean` and notes on the operator API.
+
+Tab completion of commands, flags and slugs: add `source <(tpi completion zsh)`
+to your `~/.zshrc` (or `bash` / `fish`, see `tpi completion --help`).
 
 ## Contribute
 
