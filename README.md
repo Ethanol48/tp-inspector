@@ -122,7 +122,7 @@ The first load downloads the submissions and traces of the promo (cached in
 | `enter` on a student  | Their trace as a tree, their tags, their risk / AI / code signals                                                  |
 | `A` in Repos          | Clone your `--logins` group (else the promotion) and analyse the code (`K` unlocks a passphrase-protected SSH key) |
 | `H` on a student      | Their grades in every TP / exam, by academic year                                                                  |
-| `F`                   | Pick your group among the CRI classes of the activity's semester (like `--logins`)                                 |
+| `F`                   | Pick your group among the CRI classes of the activity's semester (similar to `--logins`)                           |
 | `s` / `/`             | Sort / filter the Ranking                                                                                          |
 | `space`, then `c`     | Mark two students and compare them                                                                                 |
 | `?`                   | Every key                                                                                                          |
