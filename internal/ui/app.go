@@ -208,7 +208,7 @@ func (m *Model) startWeb() tea.Cmd {
 		return nil
 	}
 	traces := "https://operator.forge.epita.fr/epita-prepa-computer-science/" + m.ds.Activity.Slug + "/traces"
-	url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888", traces)
+	url, stop, err := web.Start(m.repoRoot(), "127.0.0.1:8888", traces, m.CRI, cri.ActivityFilter(m.slug.Year, m.slug.Bimester))
 	if err != nil {
 		return m.setStatus("Web server failed: " + err.Error())
 	}
