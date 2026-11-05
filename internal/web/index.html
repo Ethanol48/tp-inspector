@@ -6,19 +6,21 @@
 <title>tpi · code des repos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<!-- chargement non bloquant des polices : la page s'affiche tout de suite, même hors ligne -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{
   color-scheme:dark;
-  --bg:#07070c; --card:rgba(14,14,24,.72); --line:rgba(255,255,255,.12); --text:#f5f5fa; --muted:#9b9bb2;
+  --bg:#07070c; --card:rgba(14,14,24,.86); --line:rgba(255,255,255,.12); --text:#f5f5fa; --muted:#9b9bb2;
   --hover:rgba(255,255,255,.07); --a1:#ff5c8a; --a2:#a78bfa; --btn:#2f6bff;
-  --tint:rgba(167,139,250,.18); --shadow:0 18px 40px -18px rgba(0,0,0,.8); --code:rgba(6,6,12,.88);
+  --tint:rgba(167,139,250,.18); --shadow:0 18px 40px -18px rgba(0,0,0,.8); --code:#07070d;
   --com:#6f7690; --kw:#c792ea; --str:#9ece6a; --num:#ff9e64; --fn:#7aa2f7; --ty:#2ac3de;
   --sans:"Poppins",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+/* le body ne défile jamais : pas de background-attachment:fixed (coûteux), fond peint une seule fois */
 body{font:14px/1.5 var(--sans);color:var(--text);display:grid;grid-template-columns:290px 270px 1fr;gap:12px;padding:12px;overflow:hidden;
   background:
     radial-gradient(520px 420px at 92% 18%,rgba(255,92,138,.36),transparent 70%),
@@ -27,8 +29,7 @@ body{font:14px/1.5 var(--sans);color:var(--text);display:grid;grid-template-colu
     radial-gradient(480px 380px at 96% 100%,rgba(59,130,246,.22),transparent 70%),
     linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px) 0 0/48px 48px,
     linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px) 0 0/48px 48px,
-    var(--bg);
-  background-attachment:fixed}
+    var(--bg)}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
   radial-gradient(1.5px 1.5px at 22% 9%,#fff,transparent),radial-gradient(1.5px 1.5px at 47% 14%,#fff,transparent),
   radial-gradient(1.5px 1.5px at 71% 7%,#fff,transparent),radial-gradient(1.5px 1.5px at 88% 46%,#fff,transparent),
@@ -37,7 +38,8 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 :focus-visible{outline:2px solid var(--a2);outline-offset:-2px}
 button{font:inherit;color:inherit}
 *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-.pane{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden;min-height:0;min-width:0}
+/* plus de backdrop-filter (flou recalculé à chaque scroll) : fond quasi opaque à la place */
+.pane{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;min-height:0;min-width:0;contain:layout paint}
 .av{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35)}
 
 /* students */
@@ -51,8 +53,10 @@ button{font:inherit;color:inherit}
 #q:focus{outline:none;border-color:var(--a2);box-shadow:0 0 0 4px var(--tint)}
 .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;pointer-events:none}
 #count{margin:0 16px 8px;color:var(--muted);font-size:12px}
-#repos{overflow:auto;flex:1;padding:0 8px 12px;margin:0;list-style:none}
-#repos button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:12px;cursor:pointer;transition:background .12s}
+#repos{overflow:auto;flex:1;padding:0 8px 12px;margin:0;list-style:none;overscroll-behavior:contain}
+/* les lignes hors écran ne sont ni mises en page ni peintes */
+#repos li{content-visibility:auto;contain-intrinsic-size:auto 38px}
+#repos button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:12px;cursor:pointer}
 #repos button .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #repos button:hover{background:var(--hover)}
 #repos button[aria-current=true]{background:var(--btn);color:#fff;font-weight:600;box-shadow:0 8px 20px -8px var(--btn)}
@@ -65,13 +69,13 @@ button{font:inherit;color:inherit}
 .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .dl{flex:none;text-decoration:none;color:#fff;background:var(--btn);font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;box-shadow:0 6px 14px -6px var(--btn);transition:filter .12s}
 .dl:hover{filter:brightness(1.12)}
-#tree{overflow:auto;flex:1;padding:0 8px 12px}
+#tree{overflow:auto;flex:1;padding:0 8px 12px;overscroll-behavior:contain}
 #tree details{margin-left:12px}
 #tree summary{cursor:pointer;padding:4px 8px;border-radius:8px;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px}
 #tree summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--a1);border-bottom:2px solid var(--a1);transform:rotate(-45deg);transition:transform .12s;margin:0 5px 0 2px}
 #tree details[open]>summary::before{transform:rotate(45deg)}
 #tree summary:hover,#tree .f:hover{background:var(--hover)}
-#tree .f{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 8px;border-radius:8px;cursor:pointer}
+#tree .f{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 8px;border-radius:8px;cursor:pointer;content-visibility:auto;contain-intrinsic-size:auto 29px}
 #tree .f span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #tree .f[aria-current=true]{background:var(--tint);color:var(--a2);font-weight:600}
 .ext{flex:none;min-width:24px;text-align:center;padding:1px 4px;border-radius:6px;color:#fff;font:700 9.5px/1.5 var(--mono)}
@@ -85,10 +89,10 @@ main{display:flex;flex-direction:column}
 #copy{margin-left:auto;border:0;background:var(--btn);color:#fff;font-weight:600;padding:7px 16px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px -6px var(--btn);transition:transform .12s,filter .12s}
 #copy:hover{filter:brightness(1.12);transform:translateY(-1px)}
 #copy:active{transform:none}
-#code{flex:1;overflow:auto;margin:0;padding:14px 0;font:13px/1.65 var(--mono);tab-size:4;counter-reset:n;background:var(--code)}
-#code .l{display:block;white-space:pre;padding:0 24px 0 0;min-height:1.65em}
-#code .l:hover{background:var(--hover)}
-#code .l::before{counter-increment:n;content:counter(n);display:inline-block;width:58px;padding-right:18px;text-align:right;color:var(--muted);opacity:.55;user-select:none}
+/* le code est UN seul bloc de texte (innerHTML) + une gouttière de numéros : quelques nœuds DOM au lieu de milliers */
+#code{flex:1;min-height:0;overflow:auto;margin:0;padding:14px 0;font:13px/1.65 var(--mono);tab-size:4;background:var(--code);display:flex;align-items:flex-start;overscroll-behavior:contain}
+#gut{flex:none;position:sticky;left:0;z-index:1;min-width:58px;padding-right:18px;text-align:right;white-space:pre;color:rgba(155,155,178,.55);background:var(--code);user-select:none}
+#src{flex:none;display:block;padding:0 24px 0 4px;white-space:pre}
 .t-com{color:var(--com);font-style:italic}.t-kw{color:var(--kw);font-weight:600}.t-str{color:var(--str)}
 .t-num{color:var(--num)}.t-fn{color:var(--fn)}.t-ty{color:var(--ty)}
 #empty{margin:auto;max-width:36ch;text-align:center;color:var(--muted);padding:24px}
@@ -97,14 +101,33 @@ main{display:flex;flex-direction:column}
 #empty p::before{content:"»";color:var(--btn);font-weight:700;margin-right:6px}
 
 /* logins autorisés */
-#chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 12px 8px}
+#chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 12px 8px}
 #chips button{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:99px;padding:3px 12px;font-size:12px;cursor:pointer;transition:background .12s}
 #chips button:hover{background:var(--hover)}
-#chips button[aria-pressed=true]{background:var(--btn);border-color:var(--btn);color:#fff;font-weight:600}
+#chips .sort{background:var(--btn);border-color:var(--btn);color:#fff;font-weight:600}
 #chips .cfg{margin-left:auto;color:var(--muted);border-style:dashed}
 #chips .none{color:var(--muted);font-size:12px;padding:3px 4px}
+#chips .promo{color:var(--a2);font-size:12px;font-weight:600}
+
+/* popup de tri */
+#dlg{border:1px solid var(--line);border-radius:18px;background:#0e0e18;color:var(--text);padding:20px;width:min(380px,90vw);box-shadow:var(--shadow)}
+#dlg::backdrop{background:rgba(0,0,0,.65)}
+#dlg h3{margin:0 0 4px;font:700 18px var(--sans)}
+#dlg .sub{margin:0 0 12px;color:var(--muted);font-size:12px}
+#dlist{max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:14px}
+#dlist label{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;cursor:pointer}
+#dlist label:hover{background:var(--hover)}
+#dlist input{accent-color:var(--btn);width:16px;height:16px}
+#dlist .n{margin-left:auto;color:var(--muted);font-size:12px}
+.dact{display:flex;gap:8px}
+.dact button{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:10px;padding:7px 14px;cursor:pointer}
+.dact button:hover{background:var(--hover)}
+.dact #dok{margin-left:auto;background:var(--btn);border-color:var(--btn);color:#fff;font-weight:600}
+
 @media (max-width:900px){body{grid-template-columns:210px 1fr}#files{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 </head>
 <body>
 <aside id="side" class="pane">
@@ -118,19 +141,54 @@ main{display:flex;flex-direction:column}
 <nav id="files" class="pane" aria-label="Fichiers"><div id="fh"></div><div id="tree"></div></nav>
 <main class="pane">
   <div id="bar" hidden><div id="crumb"></div><span id="fmeta" class="chip"></span><button id="copy">Copier</button></div>
-  <pre id="code" hidden></pre>
+  <pre id="code" hidden><div id="gut" aria-hidden="true"></div><code id="src"></code></pre>
   <div id="empty"><div class="mark">{ }</div><h2>Choisissez un élève</h2><p>Tapez son nom à gauche, puis ouvrez un fichier. Appuyez sur / pour chercher, Entrée pour ouvrir le premier résultat.</p></div>
 </main>
 
+<dialog id="dlg">
+  <h3>Trier par classe</h3>
+  <p class="sub" id="dsub"></p>
+  <div id="dlist"></div>
+  <div class="dact"><button id="dall">Tout</button><button id="dnone">Aucune</button><button id="dok">OK</button></div>
+</dialog>
 
 <script>
 const $ = s => document.querySelector(s);
 let all = [], visible = [], login = null, paths = [], current = null, tracesBase = '';
+const treeBtns = new Map();   // chemin -> bouton, pour marquer le fichier courant sans tout parcourir
+
+/* ---------- cache des réponses (repos en lecture seule) + préchargement ---------- */
+const cache = new Map();
+function cached(key, fn) {
+  if (cache.has(key)) return cache.get(key);
+  const p = fn();
+  cache.set(key, p);
+  p.catch(() => cache.delete(key));
+  if (cache.size > 60) cache.delete(cache.keys().next().value);
+  return p;
+}
+async function api(p, params) {
+  const r = await fetch('/api/' + p + (params ? '?' + new URLSearchParams(params) : ''));
+  if (!r.ok) throw new Error((await r.text()).trim());
+  return r.json();
+}
+const getTree = l => cached('t:' + l, () => api('tree', { login: l }));
+const getFile = (l, p) => cached('f:' + l + '/' + p, () => api('file', { login: l, path: p }));
 
 /* classes lues dans groups.yml (à côté de index.html) */
 let groups = [], selected = new Set(), allowed = new Set();
 try { selected = new Set(JSON.parse(localStorage.getItem('tpi-classes-sel')) || []); } catch {}
 const saveSel = () => { try { localStorage.setItem('tpi-classes-sel', JSON.stringify([...selected])); } catch {} };
+
+/* filtre selon la promo du TP : 2030 -> classes "SPE", 2031 -> classes "SUP" */
+const PROMOS = {'2030': 'SPE', '2031': 'SUP'};
+let promo = '', promoTag = '';
+function detectPromo(text) {
+  for (const [y, tag] of Object.entries(PROMOS)) {
+    if (text.includes(y)) { promo = y; promoTag = tag; return; }
+  }
+}
+const vgroups = () => groups.filter(g => !promoTag || g.name.toUpperCase().includes(promoTag));
 
 /* lecteur YAML tolérant : "class: X" puis "logins:" suivi d'une liste ("- login" ou "* login"),
    ou d'une liste en ligne ("logins: [a, b]" / "logins: a b"). Plusieurs classes possibles. */
@@ -161,8 +219,14 @@ function parseGroups(txt) {
 }
 function applyAllowed() {
   allowed = new Set();
-  for (const g of groups) if (selected.has(g.name)) g.logins.forEach(l => allowed.add(l.toLowerCase()));
+  for (const g of vgroups()) if (selected.has(g.name)) g.logins.forEach(l => allowed.add(l.toLowerCase()));
   visible = all.filter(l => allowed.has(l.toLowerCase())).sort((a, b) => a.localeCompare(b, 'fr', {numeric: true}));
+}
+function resetIfHidden() {
+  if (login && !visible.includes(login)) {
+    login = null; current = null; paths = [];
+    $('#fh').replaceChildren(); $('#tree').replaceChildren(); treeBtns.clear();
+  }
 }
 function loadBtn() {
   const b = el('button', 'cfg', 'Charger groups.yml');
@@ -171,54 +235,77 @@ function loadBtn() {
   return b;
 }
 function renderChips() {
-  const box = $('#chips');
-  if (!groups.length) { box.replaceChildren(el('span', 'none', 'Aucune classe chargée'), loadBtn()); return; }
-  box.replaceChildren(...groups.map(g => {
-    const b = el('button', '', g.name + ' (' + g.logins.length + ')');
-    b.setAttribute('aria-pressed', selected.has(g.name));
-    b.onclick = () => toggleClass(g.name);
-    return b;
-  }), loadBtn());
+  const box = $('#chips'), vg = vgroups();
+  if (!vg.length) {
+    box.replaceChildren(el('span', 'none', groups.length ? 'Aucune classe « ' + promoTag + ' »' : 'Aucune classe chargée'), loadBtn());
+    return;
+  }
+  const n = vg.filter(g => selected.has(g.name)).length;
+  const b = el('button', 'sort', 'Trier' + (n ? ' (' + n + ')' : ''));
+  b.onclick = openSortDialog;
+  const items = [b];
+  if (promo) items.push(el('span', 'promo', promo + ' · ' + promoTag));
+  box.replaceChildren(...items, loadBtn());
+}
+/* une seule mise à jour pour toute modification de la sélection */
+function commitSel() {
+  saveSel(); applyAllowed(); resetIfHidden();
+  renderChips(); renderRepos();
+  if (!login) emptyHint();
+}
+function toggleClass(name) {
+  if (selected.has(name)) selected.delete(name); else selected.add(name);
+  commitSel();
+}
+function openSortDialog() {
+  const dlg = $('#dlg'), list = $('#dlist');
+  $('#dsub').textContent = promo
+    ? 'Promo ' + promo + ' : classes « ' + promoTag + ' » uniquement.'
+    : 'Choisissez les classes à afficher.';
+  list.replaceChildren(...vgroups().map(g => {
+    const lab = el('label'), cb = el('input');
+    cb.type = 'checkbox'; cb.checked = selected.has(g.name);
+    cb.onchange = () => toggleClass(g.name);
+    lab.append(cb, el('span', '', g.name), el('span', 'n', g.logins.length + ' élèves'));
+    return lab;
+  }));
+  const setAll = on => {
+    let changed = false;
+    for (const g of vgroups()) if (selected.has(g.name) !== on) {
+      if (on) selected.add(g.name); else selected.delete(g.name);
+      changed = true;
+    }
+    if (changed) commitSel();
+    list.querySelectorAll('input').forEach(c => c.checked = on);
+  };
+  $('#dall').onclick = () => setAll(true);
+  $('#dnone').onclick = () => setAll(false);
+  $('#dok').onclick = () => dlg.close();
+  dlg.onclick = e => { if (e.target === dlg) dlg.close(); };
+  dlg.showModal();
 }
 function setGroups(text) {
   groups = parseGroups(text || '');
-  const names = new Set(groups.map(g => g.name));
+  const names = new Set(vgroups().map(g => g.name));
   selected = new Set([...selected].filter(n => names.has(n)));
-  applyAllowed();
-  if (login && !visible.includes(login)) {
-    login = null; current = null; paths = [];
-    $('#fh').replaceChildren(); $('#tree').replaceChildren();
-  }
+  applyAllowed(); resetIfHidden();
   renderChips(); renderRepos();
 }
 const noGroupsHint = () => show('groups.yml introuvable',
   'Le serveur ne fournit pas ce fichier. Cliquez sur « Charger groups.yml » à gauche et choisissez-le : il sera mémorisé dans ce navigateur.');
-function toggleClass(name) {
-  if (selected.has(name)) selected.delete(name); else selected.add(name);
-  saveSel(); applyAllowed();
-  if (login && !visible.includes(login)) {
-    login = null; current = null; paths = [];
-    $('#fh').replaceChildren(); $('#tree').replaceChildren();
-  }
-  renderChips(); renderRepos();
-  if (!login) emptyHint();
-}
 function emptyHint() {
-  if (!selected.size) show('Aucune classe sélectionnée', 'Cliquez sur une ou plusieurs classes à gauche pour afficher leurs élèves.');
+  if (!selected.size) show('Aucune classe sélectionnée', 'Cliquez sur « Trier » à gauche pour choisir une ou plusieurs classes et afficher leurs élèves.');
   else show('Choisissez un élève', 'Tapez son nom à gauche, puis ouvrez un fichier.');
 }
 
-async function api(p, params) {
-  const r = await fetch('/api/' + p + (params ? '?' + new URLSearchParams(params) : ''));
-  if (!r.ok) throw new Error((await r.text()).trim());
-  return r.json();
-}
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
   return e;
 }
+const esc = s => s.replace(/[&<>]/g, c => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;');
+const escA = s => esc(s).replace(/"/g, '&quot;');
 function show(msg, sub) {
   $('#bar').hidden = true; $('#code').hidden = true;
   const e = $('#empty'); e.hidden = false;
@@ -228,8 +315,8 @@ function show(msg, sub) {
 /* colors */
 function hue(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
 function avatar(l) {
-  const h = hue(l), a = el('span', 'av', l.slice(0, 2).toLowerCase());
-  a.style.background = `hsl(${h} 65% 52%)`;
+  const a = el('span', 'av', l.slice(0, 2).toLowerCase());
+  a.style.background = `hsl(${hue(l)} 65% 52%)`;
   return a;
 }
 const EXT = {go:'#00acd7',py:'#3b7bbf',c:'#5c6bc0',h:'#8e6bd1',cpp:'#00599c',cc:'#00599c',hpp:'#8e6bd1',js:'#d4a017',ts:'#3178c6',java:'#e76f00',
@@ -255,35 +342,25 @@ const RE_H = new RegExp(String.raw`(#.*)|("""[\s\S]*?"""|'''[\s\S]*?'''|${STR_C}
 const HASH = new Set(['py','sh','bash','rb','yml','yaml','toml','mk','makefile','cfg','ini','conf','pl','r','dockerfile']);
 const PLAIN = new Set(['md','txt','csv','log','svg','xml']);
 
-function tokenize(text, e) {
-  const re = HASH.has(e) ? RE_H : RE_C, out = [];
+/* renvoie directement une chaîne HTML : un seul innerHTML, pas de nœud DOM par jeton */
+function highlight(text, e) {
+  if (text.length > 200000 || PLAIN.has(e)) return esc(text);
+  const re = HASH.has(e) ? RE_H : RE_C;
   re.lastIndex = 0;
-  let last = 0, m;
+  let out = '', last = 0, m;
   while ((m = re.exec(text))) {
-    if (m.index > last) out.push(['', text.slice(last, m.index)]);
+    if (m.index > last) out += esc(text.slice(last, m.index));
     let t = '';
     if (m[1]) t = 'com';
     else if (m[2]) t = 'str';
     else if (m[3]) t = 'num';
     else if (m[4]) t = KW.has(m[4]) ? 'kw' : text[re.lastIndex] === '(' ? 'fn' : /^[A-Z]/.test(m[4]) && /[a-z]/.test(m[4]) ? 'ty' : '';
     else if (m[5]) t = 'kw';
-    out.push([t, m[0]]);
+    out += t ? '<span class="t-' + t + '">' + esc(m[0]) + '</span>' : esc(m[0]);
     last = re.lastIndex;
   }
-  if (last < text.length) out.push(['', text.slice(last)]);
+  if (last < text.length) out += esc(text.slice(last));
   return out;
-}
-function render(text, e) {
-  const toks = text.length > 300000 || PLAIN.has(e) ? [['', text]] : tokenize(text, e);
-  const lines = [el('span', 'l')];
-  for (const [t, s] of toks) {
-    s.split('\n').forEach((part, i) => {
-      if (i > 0) lines.push(el('span', 'l'));
-      if (!part) return;
-      lines.at(-1).append(t ? el('span', 't-' + t, part) : document.createTextNode(part));
-    });
-  }
-  return lines;
 }
 
 /* students */
@@ -293,26 +370,26 @@ function renderRepos() {
   const missing = allowed.size - visible.length;
   $('#count').textContent = list.length + ' sur ' + visible.length + ' repos (classes choisies)'
     + (missing > 0 ? ' · ' + missing + ' login' + (missing > 1 ? 's' : '') + ' sans repo' : '');
-  const ul = $('#repos'); ul.replaceChildren();
-  for (const l of list) {
-    const li = el('li'), b = el('button');
-    b.append(avatar(l), el('span', 'nm', l));
-    b.setAttribute('aria-current', l === login);
-    b.onclick = () => openRepo(l);
-    li.append(b); ul.append(li);
-  }
+  $('#repos').innerHTML = list.map(l =>
+    `<li><button data-l="${escA(l)}" aria-current="${l === login}"><span class="av" style="background:hsl(${hue(l)} 65% 52%)">${esc(l.slice(0, 2).toLowerCase())}</span><span class="nm">${esc(l)}</span></button></li>`
+  ).join('');
   return list;
+}
+function markRepo() {
+  document.querySelectorAll('#repos button').forEach(b => b.setAttribute('aria-current', b.dataset.l === login));
 }
 
 async function openRepo(l, file) {
   if (!visible.includes(l)) return;
-  login = l; current = null;
-  renderRepos();
-  try { paths = await api('tree', { login: l }); }
-  catch (e) { paths = []; show('Repo introuvable', e.message); return; }
+  login = l; current = null; markRepo();
+  let p;
+  try { p = await getTree(l); }
+  catch (e) { if (login === l) { paths = []; show('Repo introuvable', e.message); } return; }
+  if (login !== l) return;           // un autre repo a été ouvert entre-temps
+  paths = p;
   renderTree();
   const pick = file && paths.includes(file) ? file
-    : paths.find(p => /^readme(\.|$)/i.test(p)) || paths[0];
+    : paths.find(x => /^readme(\.|$)/i.test(x)) || paths[0];
   if (pick) openFile(pick); else show('Repo vide', 'Aucun fichier à afficher pour ' + l + '.');
 }
 
@@ -324,6 +401,7 @@ function renderTree() {
     for (const d of parts.slice(0, -1)) n = n.dirs[d] ??= {dirs: {}, files: []};
     n.files.push(p);
   }
+  treeBtns.clear();
   const build = (n, depth) => {
     const frag = document.createDocumentFragment();
     for (const d of Object.keys(n.dirs).sort()) {
@@ -333,7 +411,7 @@ function renderTree() {
     for (const p of n.files) {
       const b = el('button', 'f');
       b.append(badge(p), el('span', '', p.split('/').pop()));
-      b.dataset.path = p; b.title = p; b.onclick = () => openFile(p); frag.append(b);
+      b.dataset.path = p; b.title = p; treeBtns.set(p, b); frag.append(b);
     }
     return frag;
   };
@@ -354,51 +432,91 @@ function renderTree() {
   $('#tree').replaceChildren(build(root, 0));
   markCurrent();
 }
+let curBtn = null;
 function markCurrent() {
-  document.querySelectorAll('#tree .f').forEach(b => b.setAttribute('aria-current', b.dataset.path === current));
+  if (curBtn) curBtn.setAttribute('aria-current', 'false');
+  curBtn = treeBtns.get(current) || null;
+  if (curBtn) curBtn.setAttribute('aria-current', 'true');
 }
 
 /* code */
 async function openFile(p) {
+  const l = login;
   current = p; markCurrent();
-  history.replaceState(null, '', '#' + encodeURIComponent(login) + '/' + p.split('/').map(encodeURIComponent).join('/'));
+  history.replaceState(null, '', '#' + encodeURIComponent(l) + '/' + p.split('/').map(encodeURIComponent).join('/'));
   let f;
-  try { f = await api('file', { login, path: p }); }
-  catch (e) { show('Fichier illisible', e.message); return; }
-  if (current !== p) return;
+  try { f = await getFile(l, p); }
+  catch (e) { if (current === p && login === l) show('Fichier illisible', e.message); return; }
+  if (current !== p || login !== l) return;
   if (f.big) return show(p, 'Fichier de plus de 1 Mo : ouvrez-le dans votre éditeur.');
   if (f.binary) return show(p, 'Fichier binaire : rien à afficher.');
-  const lines = render(f.text.replace(/\r\n?/g, '\n').replace(/\n$/, ''), extOf(p));
-  const code = $('#code');
-  code.replaceChildren(...lines);
+
+  const text = f.text.replace(/\r\n?/g, '\n').replace(/\n$/, '');
+  let n = 1;
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) n++;
+  const nums = new Array(n);
+  for (let i = 0; i < n; i++) nums[i] = i + 1;
+
+  const code = $('#code'), src = $('#src'), ext = extOf(p);
+  $('#gut').textContent = nums.join('\n');
+  if (text.length > 60000) {
+    // gros fichier : affichage immédiat en texte brut, coloration juste après
+    src.textContent = text;
+    requestAnimationFrame(() => setTimeout(() => {
+      if (current === p && login === l) src.innerHTML = highlight(text, ext);
+    }, 0));
+  } else {
+    src.innerHTML = highlight(text, ext);
+  }
   const parts = p.split('/'), name = el('b', '', parts.pop());
-  $('#crumb').replaceChildren(badge(p), el('span', '', [login, ...parts].join(' / ') + ' / '), name);
-  $('#fmeta').textContent = lines.length + ' lignes';
+  $('#crumb').replaceChildren(badge(p), el('span', '', [l, ...parts].join(' / ') + ' / '), name);
+  $('#fmeta').textContent = n + ' lignes';
   $('#bar').hidden = false; code.hidden = false; $('#empty').hidden = true;
-  code.scrollTop = 0;
+  code.scrollTop = 0; code.scrollLeft = 0;
   $('#copy').onclick = async e => {
     await navigator.clipboard.writeText(f.text);
     e.target.textContent = 'Copié'; setTimeout(() => e.target.textContent = 'Copier', 1500);
   };
 }
 
+/* événements (délégués : un seul écouteur par liste au lieu d'un par ligne) */
+$('#repos').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) openRepo(b.dataset.l);
+});
+$('#tree').addEventListener('click', e => {
+  const b = e.target.closest('.f');
+  if (b) openFile(b.dataset.path);
+});
+// préchargement du fichier au survol : l'ouverture est quasi instantanée au clic
+$('#tree').addEventListener('pointerover', e => {
+  const b = e.target.closest('.f');
+  if (b && login && b.dataset.path !== current) getFile(login, b.dataset.path).catch(() => {});
+});
+
 /* start */
-$('#q').addEventListener('input', renderRepos);
+let raf = 0;
+$('#q').addEventListener('input', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderRepos); });
 $('#q').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { const l = renderRepos(); if (l.length) openRepo(l[0]); }
+  if (e.key === 'Enter') { cancelAnimationFrame(raf); const l = renderRepos(); if (l.length) openRepo(l[0]); }
 });
 addEventListener('keydown', e => {
   if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('#q').focus(); }
 });
 (async () => {
-  try { tracesBase = (await api('info')).traces || ''; } catch {}
-  try { all = await api('repos'); }
-  catch (e) { show('Impossible de lire les repos', e.message); return; }
-  let src = '';
-  try {
-    const r = await fetch('groups.yml', {cache: 'no-store'});
-    if (r.ok) src = await r.text();
-  } catch {}
+  // info, repos et groups.yml en parallèle
+  const [inf, repos, gsrc] = await Promise.allSettled([
+    api('info'),
+    api('repos'),
+    fetch('groups.yml', {cache: 'no-store'}).then(r => r.ok ? r.text() : ''),
+  ]);
+  if (inf.status === 'fulfilled') {
+    tracesBase = inf.value.traces || '';
+    detectPromo((inf.value.traces || '') + ' ' + (inf.value.root || ''));
+  }
+  if (repos.status !== 'fulfilled') { show('Impossible de lire les repos', repos.reason.message); return; }
+  all = repos.value;
+  let src = gsrc.status === 'fulfilled' ? gsrc.value : '';
   if (!parseGroups(src).length) { try { src = localStorage.getItem('tpi-groups-yml') || ''; } catch {} }
   setGroups(src);
   $('#gfile').onchange = async e => {

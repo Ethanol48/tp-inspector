@@ -1,5 +1,5 @@
 - class: A1 SUP
-  logins: 
+  logins:
   - adil.gueddou
   - alexander.revington
   - alexandra-ioana.rotaru
@@ -27,6 +27,7 @@
   - thomas.courtois
   - valentino.loureiro
   - volodymyr.koshelnyk
+
 - class: A2 SUP
   logins:
   - abderrahmene.ibarissen
@@ -58,6 +59,7 @@
   - ulfur.rikhardsson
   - virgile.vivies
   - wissem.seghier
+
 - class: A3 SUP
   logins:
   - adrien.aymond
@@ -88,6 +90,7 @@
   - tristan.bertholin
   - vasanth.yogendran
   - william.garin
+
 - class: B1 SUP
   logins:
   - abdeslam.mouzni
@@ -127,6 +130,7 @@
   - ulysse.cherrier
   - wassim.ailam
   - yacine.ziane
+
 - class: B2 SUP
   logins:
   - aaron.dupont
@@ -167,6 +171,7 @@
   - xavier.maziarz
   - yonathane.borowiec
   - zachary.bricon
+
 - class: C1 SUP
   logins:
   - adam.hassi
@@ -208,6 +213,7 @@
   - vincent.goudeau-wenger
   - wissam.rechmani
   - youssef.lazzem
+
 - class: C2 SUP
   logins:
   - adam.mcibah
@@ -250,6 +256,7 @@
   - timeo.borghesi
   - victor.rousseau
   - yoann.papadacci
+
 - class: D1 SUP
   logins:
   - akilas.djemani
@@ -288,6 +295,7 @@
   - valentine.alphonse-tracqui
   - yanis.douki
   - ydriss.ait-alla
+
 - class: D2 SUP
   logins:
   - aboubaker.fathi
@@ -322,6 +330,7 @@
   - valerie.cusset-kandolo
   - yanis.rhenja
   - yannick.lin
+
 - class: E1 SUP
   logins:
   - adam.hodroge
@@ -360,6 +369,7 @@
   - william-hermann.lengue-kouoh
   - yacine.mazioud
   - yanis.tarifi
+
 - class: E2 SUP
   logins:
   - adam.farahat
@@ -401,6 +411,7 @@
   - valentin.potier
   - yanis.majdi
   - zakary.daoud
+
 - class: F1 SUP
   logins:
   - adam.el-bouhali-delvallet
@@ -440,6 +451,7 @@
   - yacine-amar-mohamed.heddadji
   - yanis.aderaze
   - yolan.mehal
+
 - class: PA1 SUP
   logins:
   - ahmed.boukadida
@@ -483,6 +495,7 @@
   - yacine.haddadi
   - yanis1.ouerfelli
   - zoe1.ramet
+
 - class: PA2 SUP
   logins:
   - abdelkarim.ben-hamida
@@ -522,3 +535,387 @@
   - paul.brocheray
   - rayan.lassouani
   - youssef.thabet
+
+- class: A1 SPE
+  logins:
+  - aditya.salvan
+  - antoine.kremer
+  - antoine.tonnot
+  - aya.embarki
+  - charbel.azar
+  - ethan.bruno
+  - francesco.mok
+  - gabriel.ribaudo
+  - gretta.kaloussian
+  - jeongbeen.shin
+  - josias.legesse
+  - kyrylo.shutov
+  - lise.bernadi
+  - lucas.bret
+  - marcel.nohra
+  - marie-jasmine.andres-yosrungruang
+  - marius.nicot
+  - mary-bruny.nguedia-nguiazon
+  - matteo.parniere-bosquez
+  - maxime.houwenaghel
+  - mehdi.hadjab
+  - mohamed.lahbabi
+  - mohamed-yamine.mouliem-nsangou
+  - nathanael.boulais
+  - nathan.grange
+  - nicolas.delisle
+  - nicolas.lorrillard
+  - olympe.armand
+  - quentin.payen
+  - quentin.redt-zimmer
+  - rayan.bennjakhoukh
+  - sidali.zerrouati
+  - simon-sacha.andrieu
+  - sofiane-youssef.el-batti
+  - tibo.hourriez
+  - tristan.duret-robert
+  - tristan.guilherme
+  - xiao-yi.chen
+  - yahya.ouidadi
+  - yanice.el-kattan-leblanc
+  - yloan.doumeix-ballester
+
+- class: A2 SPE
+  logins:
+  - achille.salvan
+  - adam.glemet
+  - adam.trabelsi-dit-karoui
+  - adrien.dumontet
+  - alexis.etcheverria
+  - alicia.chu
+  - alix.leonard
+  - amelie.nannette
+  - antonin.beliard
+  - borja.de-palacios-crouset
+  - celeste.lecamp
+  - clara.beyer
+  - clemence.goutaudier
+  - david.mbakob-attere
+  - dev.vashisth
+  - eden.laloum
+  - eden.lumbroso
+  - elliot.ronsin
+  - emilie.bon
+  - enzo.bouthier
+  - gabriel.cantat
+  - julien.allane-allion
+  - lucas.boidin
+  - marine.maillot
+  - marwan.yousef
+  - maxime.rampazzo
+  - noah.ceribac
+  - paul.jendzio-verdasca
+  - pelin.yilmaz
+  - pierre.dubrulle
+  - ponnareay.rith
+  - raphael.skala
+  - samuel.nloga-nloga
+  - violette.perreal
+  - yasmine.dghoughi
+
+- class: B1 SPE
+  logins:
+  - anais.poupion-perennes
+  - djalil.haouchine
+  - elouan.coleno
+  - ethel.soussand
+  - fabien.guessant
+  - ilyes.ben-saber
+  - jad.el-salibi
+  - jeremy.bergina
+  - joseph.lee
+  - kazuki.dardy-oyabu
+  - khalil.abdelmoula
+  - louis.bettini
+  - lucas.costa
+  - luc.lin
+  - mahe.de-berranger
+  - marwane.shih
+  - marwan.miladi
+  - mathis.pasteau
+  - moustapha.diallo
+  - nathan.lemaire
+  - nathan.paterour
+  - oualid.belhamadia
+  - paul.henrion
+  - pierre.gousseau
+  - pierre-louis.pitti-rouzaud
+  - radu-gruia.nicolau
+  - rayan.miladi
+  - rehane.nisar
+  - romain.descartes
+  - romain.guillotin
+  - samuel.leveau
+  - samy.el-alaoui
+  - samy.mellab
+  - thomas.goldman
+  - timoteo.cedolin
+  - timothee.marinia-michaud
+  - tsiory.randriatsarafara
+  - yaniv.douieb
+
+- class: B2 SPE
+  logins:
+  - adam.abou-hashish
+  - afonso-dinis.lago-dos-santos
+  - aissatou.ba
+  - alexandre.liu
+  - antoine.simon
+  - elouan.galais
+  - evan.guillemot
+  - faiz.moghrani
+  - geoffroy-saint-hilaire-sy-emmanuel.traore
+  - giovanni.fernandez-ortega
+  - guillaume.soppo-ewane-lobe
+  - hugo.chausse
+  - hugo.dubus
+  - hugo.shi
+  - iain.ho-bullock
+  - ilan.rameau
+  - ilyes.abdellaoui
+  - imane1.sarwar
+  - jean.pouget
+  - lyam.tadjine
+  - mahmoud.alami-ouali
+  - mathis.dioury
+  - matteo.lachambre
+  - maxence1.peytavit
+  - nehemia.ratovo
+  - nour.melaouah
+  - pierre-antoine.soubrier
+  - raphael.levha-beaumer
+  - rayan.martin
+  - rayan-teddy.chandler
+  - selim.gaies
+  - thomas.ly
+  - willy.ren
+  - yanis.jerjini
+  - yazid.bouhassane
+
+- class: C1 SPE
+  logins:
+  - adam.bekraoui
+  - adam.halloumi
+  - alan.sculac
+  - alexandre.obloguine
+  - anisa-ferdous.tahri
+  - armel.petard
+  - babacar1.diagne
+  - clement.charbonnier
+  - cosme.darrot
+  - dante.zanon
+  - dimitri.rasumny
+  - enzo.woodland
+  - ethan.mandereau
+  - floran.beaudelet
+  - gabriel.claude-bouilly
+  - gabriel.dos-santos
+  - ilan.somjen
+  - jules.guillemard
+  - kevin.chen
+  - kylian.dufailly
+  - lorenzo.pinto-da-silva
+  - lucas.de-araujo
+  - lucas.etienne
+  - malak.elsobky
+  - marceau.bonsergent
+  - marius.gastal
+  - martin.ferry
+  - mattheo1.nguyen
+  - matthieu.larrere
+  - maxime.gontran
+  - mihai.nistor
+  - mohamed-ali.ezzaki
+  - noe.vauges
+  - pablo.gonzalez
+  - riad.benhsain
+  - sebastien.joly
+  - timothee.nobilet
+  - victor.guillaume
+  - zaky.duriez
+  - zayan.maury
+
+- class: C2 SPE
+  logins:
+  - achille.girauldon
+  - adam.senouci
+  - amine.aaddi
+  - annaelle.le-goff
+  - antoine.bonatti
+  - antoine.voron
+  - arthur.marquaille
+  - charlie.moreau
+  - chloe.roch
+  - clement.bertrand
+  - clement.vassaux
+  - cynthia.ammad
+  - daniel.rei
+  - eliott.baumann
+  - elyas1.boudjema
+  - ewan.kulesza
+  - fabien.heude
+  - frederic.xia
+  - gaetan.cozien
+  - ghita.abelaoui
+  - guillaume.baz
+  - ilian.drouin
+  - julien.morice
+  - lou-ann.pialot
+  - louis.schweyckart
+  - maroua.krebazza
+  - mathilde.cassan
+  - matthis.huet-geneau-de-lamarliere
+  - maxime.ye
+  - milhane.boudache
+  - mohamed.karray
+  - nathan.marques
+  - neev.chandiramani
+  - noam1.hoareau
+  - philippe.zhu
+  - pierre.robin
+  - rebecca.liria
+  - sacha.boulbes
+  - sami.boutouba
+  - thibault.graff-millot
+  - timeo.absalon-lheritier
+
+- class: D1 SPE
+  logins:
+  - adam.sellam
+  - alexis.aubet
+  - anatole.brunelle
+  - arthur.collard-bourdet
+  - arthur.kroupkine
+  - cedric.leblond
+  - cleyhan.robasse
+  - edouard.lebaupain
+  - eliot.gral
+  - enzo.fassey
+  - evan.carlin-dugard
+  - eyal.hadida
+  - florian.dubreuil
+  - jean.loisel
+  - jonathan.monsellier
+  - joseph.brocart
+  - juliette.hennocque
+  - lauriane.basle
+  - louis.da-costa
+  - lucas.flaceliere
+  - lucas.isambert
+  - mael.morcrette
+  - matthieu.bourgeois
+  - matthieu.devillebichot
+  - maxime.rubio
+  - nicolas.bellard
+  - rui.calas
+  - simon.adda
+  - simon.latrille
+  - sofia.gorbanova
+  - thomas.galliano
+  - timeo.lasnier-doz
+  - valentine.donval-delierneux
+  - vasile.ionescu
+  - walid.benrbia
+  - yann.lacourte
+  - yaron.sberro
+  - yassine.ben-lamine
+
+- class: D2 SPE
+  logins:
+  - achille.garcia
+  - alexandre.vandenberghe
+  - alexis.dacheux
+  - alfred.sardin-denjoy
+  - benjamin.baroni
+  - benoit.martin
+  - clovis.gasnault
+  - elie.zelaznik
+  - elodie.baysengchanh
+  - enzo.becherrawy
+  - erwan.leboeuf
+  - fares.hamraoui
+  - francois.catteau
+  - gabin.ruiz
+  - gauthier.roland
+  - guillaume.giraudel
+  - hippolyte.polter
+  - ilyan.affane-aji
+  - ilyas.iazza
+  - ioan.dincov
+  - kesiah.mirta
+  - lilian.petit
+  - louan.favre
+  - louis.murail
+  - louis.sapin
+  - mathias.parent
+  - mohamed.cham
+  - moudjahid.bachirou
+  - noah.van-hoeylandt
+  - orian.balesme
+  - oscar.di-cocco
+  - rakavi1.vallikanthan
+  - raphael.anis
+  - ryan-fabrice.robert
+  - ugo.bricout
+  - valentin.summy
+  - williams.ung
+  - yacin.jarrar
+  - yann.malvis
+
+- class: PA1 SPE
+  logins:
+  - adam.aouadi
+  - ales.oughlis
+  - ambre.delaune
+  - angele.paraire
+  - bastien.bouchet
+  - elias.bordji
+  - florian.barbier
+  - kenane.aliliche
+  - kyan.boudlal
+  - kylian.martinez
+  - lilou.gouget
+  - maywenn.koussawo
+  - mehdi1.kellou
+  - mohamed-yanis.allaf
+  - nathaniel.rousseau-laskowski
+  - nicolas.jaumotte
+  - papa-ndiasse.niang
+  - savio.mizero-mangara
+  - shana.hobaya
+  - timeo.sayag
+  - valentin.leconte
+  - yannis.soete
+  - zeinab.el-kady
+
+- class: PA2 SPE
+  logins:
+  - aleksandre.brouillard
+  - alexandre.noirtat
+  - alyssa.gambie
+  - anh-khoa.nguyen
+  - dorian.romagnoni
+  - elhadji-ibrahima.dia
+  - gabriel.amar
+  - gabriel.croci
+  - galen.le-saout
+  - hector.gil
+  - john-eyso.khun
+  - johnny.tabet
+  - julien.dubau
+  - louis.parrennes
+  - mantas.krukonis
+  - matheo.lechalupe
+  - maxence.le-berre
+  - maxime.sabourin-bourgeois
+  - samuel.ben-hayoun
+  - theo.castani
+  - tim.labadie-gondouin
+  - tino.ruiz
+  - tom.baurberg
+  - valentin.naudet

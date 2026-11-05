@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -59,7 +60,20 @@ func Open(url string) error {
 	if b := os.Getenv("BROWSER"); b != "" {
 		candidates = append(candidates, []string{b})
 	}
+	if runtime.GOOS == "darwin" {
+		// "open" only on macOS: on some Linux distros it is an alias of openvt.
+		candidates = append(candidates,
+			[]string{"open"},
+			[]string{"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"},
+			[]string{"/Applications/Firefox.app/Contents/MacOS/firefox"},
+			[]string{"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"},
+			[]string{"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"},
+			[]string{"/Applications/Chromium.app/Contents/MacOS/Chromium"},
+			[]string{"/Applications/Safari.app/Contents/MacOS/Safari"},
+		)
+	}
 	candidates = append(candidates,
+		// WSL / Windows
 		[]string{"wslview"},
 		[]string{"explorer.exe"},
 		[]string{"/mnt/c/Windows/explorer.exe"},
@@ -67,8 +81,17 @@ func Open(url string) error {
 		[]string{"/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe"},
 		[]string{"/mnt/c/Program Files/Mozilla Firefox/firefox.exe"},
 		[]string{"cmd.exe", "/c", "start", ""},
-		[]string{"google-chrome"}, []string{"chromium"}, []string{"firefox"},
+		// Linux
 		[]string{"xdg-open"},
+		[]string{"gio", "open"},
+		[]string{"gnome-open"},
+		[]string{"kde-open"},
+		[]string{"sensible-browser"},
+		[]string{"x-www-browser"},
+		[]string{"google-chrome"}, []string{"google-chrome-stable"},
+		[]string{"chromium"}, []string{"chromium-browser"},
+		[]string{"firefox"}, []string{"brave-browser"}, []string{"microsoft-edge"},
+		[]string{"vivaldi"}, []string{"opera"}, []string{"epiphany"}, []string{"falkon"},
 	)
 	for _, c := range candidates {
 		path, err := exec.LookPath(c[0])
@@ -102,8 +125,10 @@ func (s *server) repoDir(login string) (string, bool) {
 	return dir, true
 }
 
+// info exposes the traces URL and the repos root; the page uses both to guess
+// the promo (2030 / 2031) of the assignment.
 func (s *server) info(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"traces": s.tracesURL})
+	writeJSON(w, map[string]string{"traces": s.tracesURL, "root": s.root})
 }
 
 func (s *server) repos(w http.ResponseWriter, r *http.Request) {
