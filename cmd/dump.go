@@ -22,7 +22,7 @@ indented when it is JSON. The key=value pairs become the query string.`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: completeAPIPath,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		auth := forge.NewAuth()
+		auth := newAuth()
 		if err := auth.Ensure(); err != nil {
 			return err
 		}

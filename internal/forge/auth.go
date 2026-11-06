@@ -67,10 +67,16 @@ func NewAuth() *Auth {
 // https://docs.forge.epita.fr/services/forge-id/oidc#public-test-client).
 // TPI_CRI_CLIENT_ID / TPI_CRI_CLIENT_SECRET override it; the client must
 // allow the redirect URI http://localhost:8080/complete/epita/.
+// Forge ID public test client, the default of the CRI API login.
+const (
+	TestClientID     = "125070"
+	TestClientSecret = "f6ff8d394e6185d41834b19210979b897852680cf34700ae4ecb24ea"
+)
+
 func NewCRIAuth() (*Auth, error) {
 	id, secret := os.Getenv("TPI_CRI_CLIENT_ID"), os.Getenv("TPI_CRI_CLIENT_SECRET")
 	if id == "" {
-		id, secret = "125070", "f6ff8d394e6185d41834b19210979b897852680cf34700ae4ecb24ea"
+		id, secret = TestClientID, TestClientSecret
 	}
 	home, _ := os.UserHomeDir()
 	return &Auth{

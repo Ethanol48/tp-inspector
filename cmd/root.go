@@ -10,8 +10,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
+	"tp-inspector/internal/config"
 	"tp-inspector/internal/cri"
 	"tp-inspector/internal/data"
 	"tp-inspector/internal/forge"
@@ -21,8 +23,10 @@ import (
 
 // Global flags, shared by every command.
 var (
-	cacheDir string
-	refresh  bool
+	cacheDir   string
+	refresh    bool
+	configFile string
+	cfg        config.Config // the config file, read before every command
 )
 
 // Flags of the root command (the TUI).
@@ -67,11 +71,15 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentPreRunE = loadConfig // set here: loadConfig refers to rootCmd
+
 	pf := rootCmd.PersistentFlags()
 	cacheDir = data.DefaultCacheRoot()
 	pf.Var(named(&cacheDir, "directory"), "cache", "cache directory")
 	pf.BoolVar(&refresh, "refresh", false, "ignore cached API responses")
+	pf.Var(named(&configFile, "file"), "config", "config file (default "+config.DefaultPath()+", or $"+config.EnvPath+")")
 	_ = rootCmd.MarkPersistentFlagDirname("cache")
+	_ = rootCmd.MarkPersistentFlagFilename("config", "toml")
 
 	f := rootCmd.Flags()
 	f.Var(named(&tpFlag, "slug"), "tp", "assignment slug (alternative to the argument)")
@@ -108,7 +116,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	auth := forge.NewAuth()
+	auth := newAuth()
 	criAuth, criSrc, err := newCRI()
 	if err != nil {
 		return err
@@ -132,9 +140,55 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	return ui.Run(m)
 }
 
+// loadConfig reads the config file and applies its values to the flags
+// that were not given on the command line.
+func loadConfig(cmd *cobra.Command, args []string) error {
+	if cmd == configInitCmd {
+		return nil // must work even when the current file is broken
+	}
+	var err error
+	if cfg, err = config.Load(config.Path(configFile)); err != nil {
+		return err
+	}
+	set := func(p *string, flag *pflag.Flag, v string) {
+		if v != "" && flag != nil && !flag.Changed {
+			*p = v
+		}
+	}
+	set(&cacheDir, rootCmd.PersistentFlags().Lookup("cache"), cfg.CacheDir)
+	set(&tenant, rootCmd.Flags().Lookup("tenant"), cfg.Tenant)
+	set(&loginsFile, rootCmd.Flags().Lookup("logins"), cfg.Logins)
+	return nil
+}
+
+// newAuth returns the operator session, with the token file of the config.
+func newAuth() *forge.Auth {
+	auth := forge.NewAuth()
+	if cfg.Tokens.Operator != "" {
+		auth.File = cfg.Tokens.Operator
+	}
+	return auth
+}
+
+// newCRIAuth returns the CRI API session, with the token file and client of
+// the config (TPI_CRI_CLIENT_ID still takes precedence over the client).
+func newCRIAuth() (*forge.Auth, error) {
+	auth, err := forge.NewCRIAuth()
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Tokens.CRIAPI != "" {
+		auth.File = cfg.Tokens.CRIAPI
+	}
+	if cfg.CRIClient.ID != "" && os.Getenv("TPI_CRI_CLIENT_ID") == "" {
+		auth.ClientID, auth.ClientSecret = cfg.CRIClient.ID, cfg.CRIClient.Secret
+	}
+	return auth, nil
+}
+
 // newCRI returns the CRI API session and the cached source of classes.
 func newCRI() (*forge.Auth, *cri.Source, error) {
-	auth, err := forge.NewCRIAuth()
+	auth, err := newCRIAuth()
 	if err != nil {
 		return nil, nil, err
 	}

@@ -5,8 +5,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"tp-inspector/internal/forge"
 )
 
 var loginCmd = &cobra.Command{
@@ -16,15 +14,16 @@ var loginCmd = &cobra.Command{
 
 Two sessions: operator only accepts poulpy's client, which cannot get the
 "api" scope of the CRI API (the classes behind F and --select-group). The
-tokens are stored in ~/.cri-tokens and ~/.cri-api-tokens.`,
+tokens are stored in ~/.cri-tokens and ~/.cri-api-tokens (see [tokens] in
+the config file).`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		auth := forge.NewAuth()
+		auth := newAuth()
 		if err := auth.Ensure(); err != nil {
 			return err
 		}
 		fmt.Fprintln(os.Stderr, "operator: valid token stored in", auth.File)
-		criAuth, err := forge.NewCRIAuth()
+		criAuth, err := newCRIAuth()
 		if err != nil {
 			return err
 		}

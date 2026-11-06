@@ -6,6 +6,7 @@ Full reference of `tpi`. For a quick start (compile, log in, run), see the
 - [Building](#building)
 - [Authentication](#authentication)
 - [Usage](#usage)
+- [Configuration](#configuration)
 - [CRI classes](#cri-classes)
 - [Tabs](#tabs)
 - [Keys](#keys)
@@ -90,6 +91,7 @@ tpi --logins logins.txt prog-205-p-01-2030
 tpi --select-group prog-206-p-01-2030
 tpi get-group [<slug>]
 tpi clean [--all | --repos] [-y]
+tpi config [init [-f]]
 tpi dump <path> [key=value...]
 tpi completion bash|zsh|fish|powershell
 ```
@@ -105,9 +107,10 @@ Flags can go before or after the slug. `tpi help <command>` (or
 | `--select-group` | off           | Open the [class picker](#cri-classes) as soon as the assignment is loaded; its members become the group, like `--logins` (`F` does it later). |
 | `--refresh`     | off            | Ignore cached API responses (same as pressing `R`), and the cached CRI classes (`R` keeps those).                                                                         |
 | `--cache DIR`   | `~/.cache/tpi` | Cache directory.                                                                                                                                            |
+| `--config FILE` | `~/.config/tpi/config.toml` | [Config file](#configuration) (also `$TPI_CONFIG`).                                                                                           |
 
-`--refresh` and `--cache` work with every command; the others only open the
-TUI.
+`--refresh`, `--cache` and `--config` work with every command; the others
+only open the TUI.
 
 ### Shell completion
 
@@ -151,6 +154,38 @@ URL-encoded:
 tpi dump /api/activities/activity/epita-prepa-computer-science%2Fprog-205-p-01-2030
 tpi dump /api/traces/epita-prepa-computer-science%2Fprog-205-p-01-2030/explore pageNum=0 pageSize=10
 ```
+
+## Configuration
+
+Settings are read from `~/.config/tpi/config.toml` (`$XDG_CONFIG_HOME/tpi`
+if set) before every command; `--config FILE` or `$TPI_CONFIG` name another
+file, which must then exist. Every setting is optional, and command line
+flags and environment variables take precedence over the file.
+
+```sh
+tpi config        # the file in use and the resulting settings
+tpi config init   # write a commented template (-f overwrites)
+```
+
+```toml
+cache_dir = "~/.cache/tpi"                # --cache
+tenant    = "epita-prepa-computer-science" # --tenant
+logins    = "~/my-group.txt"              # --logins
+
+[tokens]
+operator = "~/.cri-tokens"     # operator session, shared with poulpy
+cri_api  = "~/.cri-api-tokens" # CRI API session
+
+[cri_client]                   # TPI_CRI_CLIENT_ID / _SECRET take precedence
+id     = "125070"                # default: Forge ID public test client
+secret = "f6ff8d394e6185d41834b19210979b897852680cf34700ae4ecb24ea"
+```
+
+Paths accept `~` and `$VARIABLES`; relative paths are relative to the
+config file. Unknown keys are errors, so a typo does not go unnoticed.
+
+`~/.config/tpi/config.json` is not this file: the TUI writes it itself to
+remember the hidden columns.
 
 ## CRI classes
 
@@ -451,7 +486,7 @@ so `r` can remove them (after a `y` confirmation).
 
 ## Cache
 
-`~/.cache/tpi/`:
+`~/.cache/tpi/` (or `cache_dir` in the [config](#configuration), or `--cache`):
 
 - `activities.json` : your activities, fetched again when a day old (or
   when it lacks the slug you open); also used by shell completion;

@@ -155,7 +155,8 @@ To set it up in your shell (zsh, bash, fish or PowerShell), follow
 
 [DOCUMENTATION.md](DOCUMENTATION.md) covers every flag (`--logins`,
 `--select-group`, `--refresh`…), tab, key, the CRI classes, the suspicion
-scoring, repo cloning, the cache, `tpi clean` and notes on the operator API.
+scoring, repo cloning, the cache, the config file (`tpi config init`),
+`tpi clean` and notes on the operator API.
 
 ## Contribute
 
