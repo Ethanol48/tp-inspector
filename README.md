@@ -113,7 +113,8 @@ then the analysis runs by itself. Sort the Ranking by risk (`s`) to know whom
 to check first, then by suspicion once their repos are analysed.
 
 The first load downloads the submissions and traces of the promo (cached in
-`~/.cache/tpi`, so later runs are instant). Then:
+`~/.cache/tpi`, so later runs are instant; [you can move it](#5-configure)).
+Then:
 
 | Key                   | Action                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -150,6 +151,28 @@ It also completes the commands, the flags (`tpi --<TAB>`), `--tenant`,
 
 To set it up in your shell (zsh, bash, fish or PowerShell), follow
 [COMPLETIONS.md](COMPLETIONS.md).
+
+## 5. Configure
+
+Settings go in `~/.config/tpi/config.toml`. Create it with a commented
+template, then remove the `#` of what you want to change:
+
+```sh
+tpi config init   # write the template
+tpi config        # show the settings in use
+```
+
+For instance, to keep the cache (TP data, traces and cloned repos, which
+can grow big) somewhere else than `~/.cache/tpi`:
+
+```toml
+cache_dir = "/home/user/tpi-data/"
+```
+
+The file can also set default `--tenant` and `--logins`, the token files
+and the color theme (`tpi config themes` previews them). Command line flags
+still win: `--cache DIR` overrides `cache_dir`. Everything is in
+[DOCUMENTATION.md -> configuration](DOCUMENTATION.md#configuration).
 
 ## More
 
