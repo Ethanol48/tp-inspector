@@ -158,7 +158,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 	set(&cacheDir, rootCmd.PersistentFlags().Lookup("cache"), cfg.CacheDir)
 	set(&tenant, rootCmd.Flags().Lookup("tenant"), cfg.Tenant)
 	set(&loginsFile, rootCmd.Flags().Lookup("logins"), cfg.Logins)
-	return nil
+	return ui.ApplyConfig(cfg)
 }
 
 // newAuth returns the operator session, with the token file of the config.

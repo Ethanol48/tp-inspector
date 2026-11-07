@@ -55,7 +55,7 @@ id = "42"
 
 func TestLoadMissing(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "none.toml")
-	if c, err := Load(p, false); err != nil || c != (Config{}) {
+	if c, err := Load(p, false); err != nil || c.File != "" || c.CacheDir != "" {
 		t.Errorf("optional missing file: %+v, %v", c, err)
 	}
 	if _, err := Load(p, true); err == nil {
@@ -73,5 +73,24 @@ func TestLoadUnknownKey(t *testing.T) {
 func TestTemplateParses(t *testing.T) {
 	if _, err := Load(write(t, Template), true); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestLoadColors(t *testing.T) {
+	c, err := Load(write(t, `theme = "nord"
+[colors]
+accent = "#abc"
+bad = { dark = "196" }
+`), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Theme != "nord" || c.Colors["accent"] != (Color{"#abc", "#abc"}) || c.Colors["bad"] != (Color{"", "196"}) {
+		t.Errorf("got %+v", c)
+	}
+	for _, bad := range []string{`accent = "red"`, `accent = "#12345"`, `accent = { dark = "#fff", dim = "#000" }`, `accent = 3`} {
+		if _, err := Load(write(t, "[colors]\n"+bad+"\n"), true); err == nil {
+			t.Errorf("%s: no error", bad)
+		}
 	}
 }

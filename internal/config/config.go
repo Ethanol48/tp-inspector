@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -31,6 +32,14 @@ type Config struct {
 	// Logins is the default of --logins: a file of logins, your group.
 	Logins string `toml:"logins"`
 
+	// Theme is the color theme of the TUI (see `tpi config themes`).
+	Theme string `toml:"theme"`
+	// Background forces the light or dark variant of the colors: "auto"
+	// (default, asks the terminal), "dark" or "light".
+	Background string `toml:"background"`
+	// Colors overrides colors of the theme, by name (accent, secondary...).
+	Colors map[string]Color `toml:"colors"`
+
 	Tokens    Tokens    `toml:"tokens"`
 	CRIClient CRIClient `toml:"cri_client"`
 
@@ -49,6 +58,61 @@ type Tokens struct {
 type CRIClient struct {
 	ID     string `toml:"id"`
 	Secret string `toml:"secret"`
+}
+
+// Color is a color of the config: "#RRGGBB", "#RGB" or an ANSI number
+// ("0".."255"), the same on light and dark terminals, or a table
+// { light = "...", dark = "..." } (a missing side keeps the theme's).
+type Color struct {
+	Light, Dark string
+}
+
+// UnmarshalTOML accepts a string or a { light, dark } table.
+func (c *Color) UnmarshalTOML(v any) error {
+	switch v := v.(type) {
+	case string:
+		c.Light, c.Dark = v, v
+	case map[string]any:
+		for k, x := range v {
+			s, ok := x.(string)
+			switch {
+			case !ok:
+				return fmt.Errorf("color %s: want a string, got %v", k, x)
+			case k == "light":
+				c.Light = s
+			case k == "dark":
+				c.Dark = s
+			default:
+				return fmt.Errorf("color: unknown key %q (want light or dark)", k)
+			}
+		}
+	default:
+		return fmt.Errorf("color: want \"#RRGGBB\" or { light = ..., dark = ... }, got %v", v)
+	}
+	for _, s := range []string{c.Light, c.Dark} {
+		if s != "" && !ValidColor(s) {
+			return fmt.Errorf("color %q: want #RRGGBB, #RGB or 0..255", s)
+		}
+	}
+	return nil
+}
+
+// ValidColor reports whether s is "#RRGGBB", "#RGB" or an ANSI number 0..255.
+func ValidColor(s string) bool {
+	if strings.HasPrefix(s, "#") {
+		h := s[1:]
+		if len(h) != 3 && len(h) != 6 {
+			return false
+		}
+		for _, r := range h {
+			if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
+				return false
+			}
+		}
+		return true
+	}
+	n, err := strconv.Atoi(s)
+	return err == nil && n >= 0 && n <= 255
 }
 
 // DefaultPath is the config file used without --config or $TPI_CONFIG.
@@ -134,6 +198,25 @@ const Template = `# tpi configuration. Every setting is optional: remove the "#"
 
 # Default file of logins, your group (--logins).
 # logins = "~/my-group.txt"
+
+# Color theme of the TUI: tpi, claude, catppuccin, nord, gruvbox,
+# tokyonight or mono. Preview them with ` + "`tpi config themes`" + `.
+# theme = "tpi"
+
+# Light or dark variant of the colors: auto (asks the terminal), dark, light.
+# background = "auto"
+
+[colors]
+# Override colors of the theme: one color for both backgrounds, or
+# { light = "...", dark = "..." }. Colors are "#RRGGBB", "#RGB" or 0..255.
+#   accent          title, active tab, selection
+#   secondary       keys in the hints, section headers
+#   text_on_accent  text of the active tab
+#   dim, faint      secondary text; borders and empty bar cells
+#   good, warn, bad pass rates and risk levels
+#   highlight       background of the selected row
+# accent = "#A78BFA"
+# secondary = { light = "#0F8A7E", dark = "#5EEAD4" }
 
 [tokens]
 # Operator session, shared with poulpy.

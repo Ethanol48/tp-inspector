@@ -9,32 +9,41 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Colors and styles of the current theme, set by setTheme (ApplyConfig
+// from the config file, the default theme otherwise).
 var (
-	cAccent = lipgloss.AdaptiveColor{Light: "#C15F3C", Dark: "#D97757"}
-	cDim    = lipgloss.AdaptiveColor{Light: "#707070", Dark: "#8A8A8A"}
-	cFaint  = lipgloss.AdaptiveColor{Light: "#D0D0D0", Dark: "#3A3A3A"}
-	cGood   = lipgloss.AdaptiveColor{Light: "#2E7D32", Dark: "#7BC67E"}
-	cWarn   = lipgloss.AdaptiveColor{Light: "#B26A00", Dark: "#E5C07B"}
-	cBad    = lipgloss.AdaptiveColor{Light: "#C62828", Dark: "#EF6B6B"}
-	cHiBg   = lipgloss.AdaptiveColor{Light: "#FBE3D9", Dark: "#4A2A20"}
+	current Theme
 
-	sTitle      = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
-	sBold       = lipgloss.NewStyle().Bold(true)
-	sDim        = lipgloss.NewStyle().Foreground(cDim)
-	sAccent     = lipgloss.NewStyle().Foreground(cAccent)
-	sGood       = lipgloss.NewStyle().Foreground(cGood)
-	sWarn       = lipgloss.NewStyle().Foreground(cWarn)
-	sBad        = lipgloss.NewStyle().Foreground(cBad)
-	sHeader     = lipgloss.NewStyle().Foreground(cDim).Bold(true)
-	sTabActive  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(cAccent).Bold(true).Padding(0, 1)
-	sTabIdle    = lipgloss.NewStyle().Foreground(cDim).Padding(0, 1)
-	sKey        = lipgloss.NewStyle().Foreground(cAccent)
-	sHighlight  = lipgloss.NewStyle().Background(cHiBg)
-	sCard       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cFaint).Padding(0, 2)
-	sSectionHdr = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
+	cAccent, cDim, cFaint, cGood, cWarn, cBad, cHiBg lipgloss.AdaptiveColor
+
+	sTitle, sBold, sDim, sAccent, sGood, sWarn, sBad, sHeader  lipgloss.Style
+	sTabActive, sTabIdle, sKey, sHighlight, sCard, sSectionHdr lipgloss.Style
 )
 
-// renderTabs draws a tab strip like Claude Code's /usage screen.
+func init() { setTheme(Themes[DefaultTheme]) }
+
+func setTheme(t Theme) {
+	current = t
+	cAccent, cDim, cFaint = t.Accent, t.Dim, t.Faint
+	cGood, cWarn, cBad, cHiBg = t.Good, t.Warn, t.Bad, t.Highlight
+
+	sTitle = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
+	sBold = lipgloss.NewStyle().Bold(true)
+	sDim = lipgloss.NewStyle().Foreground(cDim)
+	sAccent = lipgloss.NewStyle().Foreground(cAccent)
+	sGood = lipgloss.NewStyle().Foreground(cGood)
+	sWarn = lipgloss.NewStyle().Foreground(cWarn)
+	sBad = lipgloss.NewStyle().Foreground(cBad)
+	sHeader = lipgloss.NewStyle().Foreground(cDim).Bold(true)
+	sTabActive = lipgloss.NewStyle().Foreground(t.OnAccent).Background(cAccent).Bold(true).Padding(0, 1)
+	sTabIdle = lipgloss.NewStyle().Foreground(cDim).Padding(0, 1)
+	sKey = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	sHighlight = lipgloss.NewStyle().Background(cHiBg)
+	sCard = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cFaint).Padding(0, 2)
+	sSectionHdr = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+}
+
+// renderTabs draws the tab strip, the active tab on the accent color.
 func renderTabs(names []string, active int) string {
 	parts := make([]string, len(names))
 	for i, n := range names {

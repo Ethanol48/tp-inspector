@@ -165,12 +165,20 @@ flags and environment variables take precedence over the file.
 ```sh
 tpi config        # the file in use and the resulting settings
 tpi config init   # write a commented template (-f overwrites)
+tpi config themes # preview the color themes
 ```
 
 ```toml
 cache_dir = "~/.cache/tpi"                # --cache
 tenant    = "epita-prepa-computer-science" # --tenant
 logins    = "~/my-group.txt"              # --logins
+
+theme      = "tpi"   # color theme of the TUI, see below
+background = "auto"  # auto, dark or light
+
+[colors]             # override colors of the theme
+accent    = "#A78BFA"
+secondary = { light = "#0F8A7E", dark = "#5EEAD4" }
 
 [tokens]
 operator = "~/.cri-tokens"     # operator session, shared with poulpy
@@ -183,6 +191,28 @@ secret = "f6ff8d394e6185d41834b19210979b897852680cf34700ae4ecb24ea"
 
 Paths accept `~` and `$VARIABLES`; relative paths are relative to the
 config file. Unknown keys are errors, so a typo does not go unnoticed.
+
+### Colors
+
+`theme` picks one of the built-in themes: `tpi` (default, violet and teal),
+`claude` (the former orange), `catppuccin`, `nord`, `gruvbox`, `tokyonight`
+and `mono` (grays, color only for pass rates and risks). Every color has a
+light and a dark variant, chosen from the terminal background; set
+`background = "dark"` or `"light"` if the terminal does not report it.
+
+`[colors]` replaces colors of the theme. A value is `"#RRGGBB"`, `"#RGB"`
+or an ANSI number `"0"`..`"255"` for both backgrounds, or a table
+`{ light = "...", dark = "..." }` (a missing side keeps the theme's):
+
+| Color            | Used for                                   |
+| ---------------- | ------------------------------------------ |
+| `accent`         | title, active tab, selection               |
+| `secondary`      | keys in the hints, section headers         |
+| `text_on_accent` | text of the active tab                     |
+| `dim`            | secondary text                             |
+| `faint`          | borders, empty cells of the bars           |
+| `good`, `warn`, `bad` | pass rates and risk levels            |
+| `highlight`      | background of the selected row             |
 
 `~/.config/tpi/config.json` is not this file: the TUI writes it itself to
 remember the hidden columns.

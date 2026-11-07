@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"tp-inspector/internal/config"
+	"tp-inspector/internal/ui"
 )
 
 var configForce bool
@@ -25,7 +28,10 @@ template.`,
   tpi config
 
   # write a commented template to edit
-  tpi config init`,
+  tpi config init
+
+  # preview the color themes
+  tpi config themes`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := cfg.File
@@ -45,6 +51,8 @@ template.`,
 		fmt.Fprintln(w, "tokens.operator: ", newAuth().File)
 		fmt.Fprintln(w, "tokens.cri_api:  ", criAuth.File)
 		fmt.Fprintln(w, "cri_client.id:   ", criAuth.ClientID)
+		fmt.Fprintln(w, "theme:           ", orDefault(cfg.Theme, ui.DefaultTheme), colorsNote())
+		fmt.Fprintln(w, "background:      ", orDefault(cfg.Background, "auto"))
 		return nil
 	},
 }
@@ -70,6 +78,37 @@ var configInitCmd = &cobra.Command{
 	},
 }
 
+var configThemesCmd = &cobra.Command{
+	Use:   "themes",
+	Short: "Preview the color themes of the TUI",
+	Long: `Preview the color themes of the TUI, with your [colors] overrides
+left out. Set one with theme = "<name>" in the config file.`,
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		w := cmd.OutOrStdout()
+		for _, n := range ui.ThemeNames() {
+			mark := "  "
+			if n == orDefault(cfg.Theme, ui.DefaultTheme) {
+				mark = "* "
+			}
+			fmt.Fprintf(w, "%s%-11s %s\n\n", mark, n, ui.ThemePreview(n))
+		}
+	},
+}
+
+// colorsNote lists the [colors] overrides of the config.
+func colorsNote() string {
+	if len(cfg.Colors) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(cfg.Colors))
+	for n := range cfg.Colors {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return "(overridden: " + strings.Join(names, ", ") + ")"
+}
+
 func orDefault(v, def string) string {
 	if v == "" {
 		return def
@@ -79,6 +118,6 @@ func orDefault(v, def string) string {
 
 func init() {
 	configInitCmd.Flags().BoolVarP(&configForce, "force", "f", false, "overwrite an existing file")
-	configCmd.AddCommand(configInitCmd)
+	configCmd.AddCommand(configInitCmd, configThemesCmd)
 	rootCmd.AddCommand(configCmd)
 }
