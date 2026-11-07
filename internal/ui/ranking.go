@@ -173,7 +173,11 @@ func (v *rankingView) rebuild(m *Model) {
 				return a.risk > b.risk
 			}
 		}
-		return a.st.Login < b.st.Login
+		
+		_, name_a, _ := strings.Cut(a.st.Login, ".")
+		_, name_b, _ := strings.Cut(b.st.Login, ".")
+
+		return name_a < name_b
 	}
 	sort.SliceStable(es, func(i, j int) bool {
 		if v.reverse {
