@@ -191,20 +191,22 @@ const Template = `# tpi configuration. Every setting is optional: remove the "#"
 # Paths accept ~ and $VARIABLES; relative paths are relative to this file.
 
 # Cache of API responses, traces and cloned repos (--cache).
-# cache_dir = "~/.cache/tpi"
+cache_dir = "~/.cache/tpi"
 
-# Default tenant of the activity (--tenant). By default it is looked up.
-# tenant = "epita-prepa-computer-science"
+# Default tenant of the activity (--tenant). Empty: looked up in your
+# activities. Example: "epita-prepa-computer-science".
+tenant = "epita-prepa-computer-science"
 
 # Default file of logins, your group (--logins).
-# logins = "~/my-group.txt"
+# Empty: no group. Example: "~/my-group.txt".
+logins = ""
 
-# Color theme of the TUI: tpi, claude, catppuccin, nord, gruvbox,
+# Color theme of the TUI: tpi, violet, catppuccin, nord, gruvbox,
 # tokyonight or mono. Preview them with ` + "`tpi config themes`" + `.
-# theme = "tpi"
+theme = "tpi"
 
 # Light or dark variant of the colors: auto (asks the terminal), dark, light.
-# background = "auto"
+background = "auto"
 
 [colors]
 # Override colors of the theme: one color for both backgrounds, or
@@ -220,15 +222,16 @@ const Template = `# tpi configuration. Every setting is optional: remove the "#"
 
 [tokens]
 # Operator session, shared with poulpy.
-# operator = "~/.cri-tokens"
+operator = "~/.cri-tokens"
 # CRI API session (classes, F and --select-group).
-# cri_api = "~/.cri-api-tokens"
+cri_api = "~/.cri-api-tokens"
 
 [cri_client]
 # OAuth2 client of the CRI API login; it must allow the redirect URI
 # http://localhost:8080/complete/epita/. TPI_CRI_CLIENT_ID and
 # TPI_CRI_CLIENT_SECRET take precedence. Default: the Forge ID public test
+
 # client (development only).
-# id = "` + forge.TestClientID + `"
-# secret = "` + forge.TestClientSecret + `"
+id = "` + forge.TestClientID + `"
+secret = "` + forge.TestClientSecret + `"
 `

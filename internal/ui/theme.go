@@ -33,18 +33,7 @@ const DefaultTheme = "tpi"
 
 // Themes are the built-in themes, by name.
 var Themes = map[string]Theme{
-	"tpi": {
-		Accent:    ac("#6D4AE0", "#A78BFA"),
-		Secondary: ac("#0F8A7E", "#5EEAD4"),
-		OnAccent:  ac("#FFFFFF", "#1A1530"),
-		Dim:       ac("#6B6F80", "#8B8FA3"),
-		Faint:     ac("#D5D7E0", "#34374A"),
-		Good:      ac("#1E8E4E", "#86E1A0"),
-		Warn:      ac("#A86A00", "#F5C97A"),
-		Bad:       ac("#C6284C", "#F38BA8"),
-		Highlight: ac("#EEE8FF", "#2D2547"),
-	},
-	"claude": {
+	"tpi": { // the colors of the first versions
 		Accent:    ac("#C15F3C", "#D97757"),
 		Secondary: ac("#C15F3C", "#D97757"),
 		OnAccent:  ac("#FFFFFF", "#FFFFFF"),
@@ -54,6 +43,17 @@ var Themes = map[string]Theme{
 		Warn:      ac("#B26A00", "#E5C07B"),
 		Bad:       ac("#C62828", "#EF6B6B"),
 		Highlight: ac("#FBE3D9", "#4A2A20"),
+	},
+	"violet": {
+		Accent:    ac("#6D4AE0", "#A78BFA"),
+		Secondary: ac("#0F8A7E", "#5EEAD4"),
+		OnAccent:  ac("#FFFFFF", "#1A1530"),
+		Dim:       ac("#6B6F80", "#8B8FA3"),
+		Faint:     ac("#D5D7E0", "#34374A"),
+		Good:      ac("#1E8E4E", "#86E1A0"),
+		Warn:      ac("#A86A00", "#F5C97A"),
+		Bad:       ac("#C6284C", "#F38BA8"),
+		Highlight: ac("#EEE8FF", "#2D2547"),
 	},
 	"catppuccin": { // latte / mocha
 		Accent:    ac("#8839EF", "#CBA6F7"),

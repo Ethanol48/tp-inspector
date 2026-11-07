@@ -37,7 +37,7 @@ func setTheme(t Theme) {
 	sHeader = lipgloss.NewStyle().Foreground(cDim).Bold(true)
 	sTabActive = lipgloss.NewStyle().Foreground(t.OnAccent).Background(cAccent).Bold(true).Padding(0, 1)
 	sTabIdle = lipgloss.NewStyle().Foreground(cDim).Padding(0, 1)
-	sKey = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	sKey = lipgloss.NewStyle().Foreground(t.Secondary)
 	sHighlight = lipgloss.NewStyle().Background(cHiBg)
 	sCard = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cFaint).Padding(0, 2)
 	sSectionHdr = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)

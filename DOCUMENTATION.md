@@ -170,8 +170,8 @@ tpi config themes # preview the color themes
 
 ```toml
 cache_dir = "~/.cache/tpi"                # --cache
-tenant    = "epita-prepa-computer-science" # --tenant
-logins    = "~/my-group.txt"              # --logins
+tenant    = ""   # --tenant; empty: looked up (e.g. "epita-prepa-computer-science")
+logins    = ""   # --logins; empty: no group (e.g. "~/my-group.txt")
 
 theme      = "tpi"   # color theme of the TUI, see below
 background = "auto"  # auto, dark or light
@@ -194,8 +194,8 @@ config file. Unknown keys are errors, so a typo does not go unnoticed.
 
 ### Colors
 
-`theme` picks one of the built-in themes: `tpi` (default, violet and teal),
-`claude` (the former orange), `catppuccin`, `nord`, `gruvbox`, `tokyonight`
+`theme` picks one of the built-in themes: `tpi` (default, orange, the
+colors of the first versions), `violet` (violet and teal), `catppuccin`, `nord`, `gruvbox`, `tokyonight`
 and `mono` (grays, color only for pass rates and risks). Every color has a
 light and a dark variant, chosen from the terminal background; set
 `background = "dark"` or `"light"` if the terminal does not report it.
