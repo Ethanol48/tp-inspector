@@ -116,6 +116,8 @@ type Model struct {
 	jobTraces map[string]*trace.Trace // job id -> trace, for any tag
 	jobErrs   map[string]error
 	jobBusy   map[string]bool
+
+	next tea.Cmd // started after the current key press (history cheat scan)
 }
 
 type jobTraceMsg struct {
@@ -321,7 +323,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next := m.startAnalysis()
 		return m, tea.Batch(next, m.setStatus(fmt.Sprintf("Code analysed: %d repos, %d pairs sharing code", len(msg.res.Repos), len(msg.res.Pairs))))
 	case tea.KeyMsg:
-		return m, m.handleKey(msg)
+		cmd := m.handleKey(msg)
+		if m.next != nil {
+			cmd, m.next = tea.Batch(cmd, m.next), nil
+		}
+		return m, cmd
 	}
 	return m, nil
 }
@@ -348,7 +354,11 @@ func (m *Model) routeHistory(login string, msg tea.Msg) tea.Cmd {
 
 // openHistory shows the history of a student, asking before downloading it.
 func (m *Model) openHistory(login string) {
-	m.push(newHistoryView(m, login))
+	v := newHistoryView(m, login)
+	m.push(v)
+	if v.h != nil { // cached history: scan the TPs' commits right away
+		m.next = v.startCheat()
+	}
 }
 
 func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
@@ -783,7 +793,12 @@ func (m *Model) startClone(logins []string) tea.Cmd {
 			ch <- cloneDoneMsg{checkErr: fmt.Errorf("%s (%s): %v", targets[0].Login, targets[0].Remote, err)}
 			return
 		}
-		results := repos.SyncAll(context.Background(), root, targets, 6, func(done, total int) {
+		// Each worker keeps one multiplexed SSH connection: 32 in parallel is far
+		// faster than 6 for a class. REPOS_WORKERS=N changes it without recompiling
+		// (lower it if the forge drops connections).
+		opt := repos.DefaultOptions()
+		opt.Workers = 32
+		results := repos.SyncAllWith(context.Background(), root, targets, opt, func(done, total int) {
 			select {
 			case ch <- cloneProgressMsg{done, total}:
 			default:

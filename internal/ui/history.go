@@ -67,12 +67,21 @@ type historyView struct {
 	built    *data.History
 	sortMode int
 	reverse  bool
-	showAll  bool // include activities without any submission
-	kind     int  // 0 = every kind, else historyKinds[kind-1]
+	showAll  bool                   // include activities without any submission
+	kind     int                    // 0 = every kind, else historyKinds[kind-1]
+	cheat    map[string]cheatResult // by activity slug; nil = not scanned
+	tmpl     string                 // remote pattern of the student's repos, "" = unknown
+	cacheDir string                 // where the TPs are cloned
 }
 
 func newHistoryView(m *Model, login string) *historyView {
 	v := &historyView{login: login, promo: m.slug.Promo}
+	remote := ""
+	if st := m.student(login); st != nil {
+		remote = st.Group.GitRemoteURL
+	}
+	v.tmpl = deriveTemplate(remote, login, m.ds.Activity.Slug, m.slug.Promo)
+	v.cacheDir = m.loader.Cache.Root
 	if h, ok := m.loader.CachedHistory(login, v.promo); ok {
 		v.h = h
 	} else {
@@ -98,7 +107,7 @@ func (v *historyView) Keys() []string {
 		kind = historyKinds[v.kind-1].name
 	}
 	return []string{keyHint("tab ←/→", "year"), keyHint("s", "sort: "+historySorts[v.sortMode]), keyHint("r", "reverse"),
-		keyHint("k", "kind: "+kind), keyHint("a", "without submission"), keyHint("enter", "open (this TP)"), keyHint("U", "download again")}
+		keyHint("k", "kind: "+kind), keyHint("a", "without submission"), keyHint("c", "check cheat"), keyHint("enter", "open (this TP)"), keyHint("U", "download again")}
 }
 
 func (v *historyView) start(m *Model) tea.Cmd {
@@ -128,6 +137,11 @@ func (v *historyView) handle(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case historyProgressMsg:
 		v.progress = msg
+		if msg.step == cheatDone { // the scan has filled v.cheat
+			v.loading = false
+			v.built = nil
+			return nil
+		}
 		return v.listen()
 	case historyLoadedMsg:
 		v.loading = false
@@ -135,9 +149,37 @@ func (v *historyView) handle(msg tea.Msg) tea.Cmd {
 			v.err = msg.err
 		} else {
 			v.h = msg.h
+			v.built = nil
+			v.cheat = nil
+			return v.startCheat() // clone the TPs and look at the commits
 		}
 	}
 	return nil
+}
+
+// startCheat clones the repository of every TP of the student with a
+// submission and looks for an AI co-author in its commits.
+func (v *historyView) startCheat() tea.Cmd {
+	if v.h == nil || v.tmpl == "" {
+		return nil
+	}
+	v.loading = true
+	v.progress = historyProgressMsg{login: v.login, step: "Commits"}
+	if v.ch == nil {
+		v.ch = make(chan tea.Msg, 64)
+	}
+	ch, login, entries, tmpl, root := v.ch, v.login, v.h.Entries, v.tmpl, v.cacheDir
+	go func() {
+		res := scanCheats(login, tmpl, root, entries, func(done, total int) {
+			select {
+			case ch <- historyProgressMsg{login, "Commits", done, total}:
+			default:
+			}
+		})
+		v.cheat = res // written before the message below: no race
+		ch <- historyProgressMsg{login: login, step: cheatDone}
+	}()
+	return v.listen()
 }
 
 func (v *historyView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
@@ -176,6 +218,11 @@ func (v *historyView) Update(m *Model, k tea.KeyMsg) tea.Cmd {
 	case "U":
 		v.confirm = true
 		return nil
+	case "c":
+		if v.tmpl == "" {
+			return m.setStatus("No git remote known for " + v.login + " in " + m.ds.Activity.Slug + " (Repos tab), or set " + cheatEnv)
+		}
+		return v.startCheat()
 	}
 	if v.sec == 0 {
 		if v.tSum.HandleKey(key) {
@@ -269,6 +316,42 @@ func (v *historyView) current() *historySection {
 	return &v.sections[v.sec-1]
 }
 
+// cheatCell tells whether the student cheated on a TP: at least one commit of
+// their TP has an AI co-author. Only TPs with a submission are concerned; "?"
+// while the TP is not scanned.
+func (v *historyView) cheatCell(e data.HistoryEntry) string {
+	if kindOf(e) != "p" || e.Subs == 0 {
+		return ""
+	}
+	r, ok := v.cheat[e.Activity.Slug]
+	switch {
+	case !ok && v.tmpl == "":
+		return sWarn.Render("url?") // TPI_REPO_URL is not set: nothing can be cloned
+	case !ok:
+		return sDim.Render("?") // not scanned yet: press c
+	case r.err != "":
+		return sWarn.Render("error")
+	case r.cheat:
+		return sBad.Render("yes")
+	}
+	return sDim.Render("no")
+}
+
+// cheatError returns the first error of the cheat scan ("" when none).
+func (v *historyView) cheatError() string {
+	slugs := make([]string, 0, len(v.cheat))
+	for s := range v.cheat {
+		slugs = append(slugs, s)
+	}
+	sort.Strings(slugs)
+	for _, s := range slugs {
+		if e := v.cheat[s].err; e != "" {
+			return s + ": " + e
+		}
+	}
+	return ""
+}
+
 func avgCell(s historyStat) string {
 	if s.n == 0 {
 		return sDim.Render("—")
@@ -319,6 +402,7 @@ func (v *historyView) rebuild() {
 		{Title: "Activity", Width: 22},
 		{Title: "Kind", Width: 7},
 		{Title: "Name", Width: 0},
+		{Title: "Cheat", Width: 5},
 		{Title: "Grade", Width: 5, Right: true},
 		{Title: "", Width: 12},
 		{Title: "Tag", Width: 18},
@@ -391,7 +475,7 @@ func (v *historyView) rebuild() {
 			subs = fmt.Sprint(e.Subs)
 		}
 		rows = append(rows, Row{Key: e.Activity.Slug, Cells: []string{
-			slug, kind, name, pctCell(e.Percent()), pctBar(e.Percent(), 12), tag, when, subs}})
+			slug, kind, name, v.cheatCell(e), pctCell(e.Percent()), pctBar(e.Percent(), 12), tag, when, subs}})
 	}
 	v.t.Empty = "No submission in this year (a shows every activity)."
 	v.t.SetRows(rows)
@@ -458,7 +542,7 @@ func (v *historyView) View(m *Model, w, h int) string {
 		msg := sBold.Render("Download the history of "+v.login+"?") + "\n\n" +
 			sDim.Render(fmt.Sprintf("One request per activity of the promos %d–%d%s: TPs, exams and retakes,", promos[0], promos[len(promos)-1], est)) + "\n" +
 			sDim.Render("including the neighbouring promos to find a repeated year.") + "\n" +
-			sDim.Render("Only grades are fetched, no traces. The result is cached.") + "\n\n" +
+			sDim.Render("Grades are fetched, then each TP is cloned (commits only) to look for AI co-authors.") + "\n\n" +
 			keyHint("y", "download") + "   " + keyHint("n/esc", "cancel")
 		if v.h != nil {
 			msg += "\n\n" + sDim.Render("Current copy downloaded "+fmtDuration(time.Since(v.h.FetchedAt))+" ago.")
@@ -517,9 +601,13 @@ func (v *historyView) View(m *Model, w, h int) string {
 		title = fmt.Sprintf("Year %d with the %d promo (%s)", cur.year, cur.promo, cur.academic())
 	}
 	head := nav + "\n\n" + sBold.Render(title) + sDim.Render("  ·  "+info) + "\n" + cardRow + "\n"
-	note := sDim.Render("Grade = newest submission of the graded definition (submit/submission); averages ignore activities without a submission.")
-	if cur == nil {
-		return head + "\n" + v.tSum.View(w, max(3, h-lipgloss.Height(head)-3)) + "\n" + note
+	note := ""
+	if msg := v.cheatError(); msg != "" {
+		note = sBad.Render("Cheat: "+msg) + "\n"
 	}
-	return head + note + "\n\n" + v.t.View(w, max(3, h-lipgloss.Height(head)-2))
+	note += sDim.Render("Grade = newest submission of the graded definition (submit/submission); averages ignore activities without a submission.")
+	if cur == nil {
+		return head + "\n" + v.tSum.View(w, max(3, h-lipgloss.Height(head)-2-lipgloss.Height(note))) + "\n" + note
+	}
+	return head + note + "\n\n" + v.t.View(w, max(3, h-lipgloss.Height(head)-1-lipgloss.Height(note)))
 }
