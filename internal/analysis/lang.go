@@ -87,7 +87,7 @@ var codeLineRes = []*regexp.Regexp{
 	// contains a digit, quote or bracket, so that prose "x = the sum" is kept
 	regexp.MustCompile(`^[A-Za-z_][\w.\[\]>*-]*\s*([-+*/%|&^]|<<|>>)?=\s*([^\s=]\S*|.*[0-9"'()\[\]{}].*)$`),
 	// preprocessor
-	regexp.MustCompile(`^#\s*(include\s*[<"]|define\s+\w|ifn?def\s+\w|endif|pragma\s)`),
+	regexp.MustCompile(`^#\s*(include|include_next|define|undef|ifdef|ifndef|if|elif|elifdef|elifndef|else|endif|pragma|error|warning|line)\b`),
 	// Python
 	regexp.MustCompile(`^(def|class)\s+\w+.*:$`),
 	regexp.MustCompile(`^(else|try|finally)\s*:$`),
@@ -97,13 +97,18 @@ var codeLineRes = []*regexp.Regexp{
 }
 
 // commentTextLines returns the lines of a comment token without its markers
-// (//, /*, */, #, leading *).
+// (//, /*, */, #, leading *). A '#' that follows a C marker is kept: it
+// starts a commented-out preprocessor directive ("//#include <x.h>").
 func commentTextLines(text string) []string {
 	var out []string
 	for i, l := range strings.Split(text, "\n") {
 		l = strings.TrimSpace(l)
 		if i == 0 {
-			l = strings.TrimLeft(l, "/*#")
+			if strings.HasPrefix(l, "#") {
+				l = strings.TrimLeft(l, "#") // Python comment
+			} else {
+				l = strings.TrimLeft(l, "/*")
+			}
 		} else {
 			l = strings.TrimPrefix(l, "*")
 		}
