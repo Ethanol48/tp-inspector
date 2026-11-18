@@ -793,7 +793,12 @@ func (m *Model) startClone(logins []string) tea.Cmd {
 			ch <- cloneDoneMsg{checkErr: fmt.Errorf("%s (%s): %v", targets[0].Login, targets[0].Remote, err)}
 			return
 		}
-		results := repos.SyncAll(context.Background(), root, targets, 6, func(done, total int) {
+		// Each worker keeps one multiplexed SSH connection: 32 in parallel is far
+		// faster than 6 for a class. REPOS_WORKERS=N changes it without recompiling
+		// (lower it if the forge drops connections).
+		opt := repos.DefaultOptions()
+		opt.Workers = 64
+		results := repos.SyncAllWith(context.Background(), root, targets, opt, func(done, total int) {
 			select {
 			case ch <- cloneProgressMsg{done, total}:
 			default:
