@@ -797,7 +797,7 @@ func (m *Model) startClone(logins []string) tea.Cmd {
 		// faster than 6 for a class. REPOS_WORKERS=N changes it without recompiling
 		// (lower it if the forge drops connections).
 		opt := repos.DefaultOptions()
-		opt.Workers = 64
+		opt.Workers = 32
 		results := repos.SyncAllWith(context.Background(), root, targets, opt, func(done, total int) {
 			select {
 			case ch <- cloneProgressMsg{done, total}:
