@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -97,9 +99,11 @@ func repoURL(tmpl, login string, e data.HistoryEntry) string {
 	).Replace(tmpl)
 }
 
-// checkTP clones the TP of the student at the tag they submitted, with the
-// repos package, and looks for an AI co-author in the commits that lead to
-// that tag. The clone goes to <root>/<slug>/repos/<login>, like the Repos tab.
+// checkTP downloads only the commit metadata of the TP of the student up to
+// the tag they submitted (no trees, no blobs) and looks for an AI co-author in
+// those commits. The bare repo goes to <root>/<slug>/meta/<login>.git: it is
+// kept apart from <root>/<slug>/repos, which holds the full clones of the
+// Repos tab.
 func checkTP(ctx context.Context, tmpl, root, login string, e data.HistoryEntry) (cheatResult, error) {
 	if tmpl == "" {
 		return cheatResult{}, fmt.Errorf("no git remote known for this student in the open assignment")
@@ -107,30 +111,75 @@ func checkTP(ctx context.Context, tmpl, root, login string, e data.HistoryEntry)
 	if e.Last == nil || e.Last.Ref == "" {
 		return cheatResult{}, fmt.Errorf("no submitted tag")
 	}
-	t := repos.Target{Login: login, Remote: repoURL(tmpl, login, e), Ref: e.Last.Ref}
-	opt := repos.DefaultOptions()
-	opt.Workers = 1
-	res := repos.SyncAllWith(ctx, filepath.Join(root, e.Activity.Slug, "repos"), []repos.Target{t}, opt, nil)
-	if err := res[0].Err; err != nil {
-		if repos.IsAuthError(err) {
-			return cheatResult{}, fmt.Errorf("SSH refused your key: press K in Repos to unlock it (%s)", t.Remote)
-		}
-		return cheatResult{}, fmt.Errorf("%s: %v", t.Remote, err)
-	}
-	// REPOS_DEPTH may have made a shallow clone: the whole history is needed.
-	if err := repos.Deepen(ctx, res[0].Dir, t.Ref, ""); err != nil {
-		return cheatResult{}, err
-	}
-	commits, err := repos.Log(res[0].Dir)
+	remote := repoURL(tmpl, login, e)
+	dir := filepath.Join(root, e.Activity.Slug, "meta", login+".git")
+	messages, err := fetchCommitMessages(ctx, dir, remote, e.Last.Ref)
 	if err != nil {
-		return cheatResult{}, err
+		if repos.IsAuthError(err) {
+			return cheatResult{}, fmt.Errorf("SSH refused your key: press K in Repos to unlock it (%s)", remote)
+		}
+		return cheatResult{}, fmt.Errorf("%s: %v", remote, err)
 	}
-	for _, c := range commits {
-		if HasAICoAuthor(c.Subject + "\n\n" + c.Body) {
-			return cheatResult{cheat: true}, nil
+	return cheatResult{cheat: AnyAICoAuthor(messages)}, nil
+}
+
+// fetchCommitMessages fetches the commits that lead to a tag with
+// --filter=tree:0 (commits only) into a bare repo and returns their full
+// messages. The repo is created on the first call and only updated after.
+func fetchCommitMessages(ctx context.Context, dir, remote, ref string) ([]string, error) {
+	if _, err := os.Stat(filepath.Join(dir, "HEAD")); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, err
+		}
+		for _, args := range [][]string{
+			{"init", "--bare", "--quiet"},
+			{"remote", "add", "origin", remote},
+			{"config", "remote.origin.promisor", "true"},
+			{"config", "remote.origin.partialclonefilter", "tree:0"},
+		} {
+			if _, err := gitRun(ctx, dir, args...); err != nil {
+				return nil, err
+			}
+		}
+	} else if _, err := gitRun(ctx, dir, "remote", "set-url", "origin", remote); err != nil {
+		return nil, err
+	}
+
+	tag := "refs/tags/" + ref
+	// "+" so that a tag the student moved is updated.
+	if _, err := gitRun(ctx, dir, "fetch", "--quiet", "--no-tags", "--filter=tree:0",
+		"origin", "+"+tag+":"+tag); err != nil {
+		return nil, err
+	}
+	out, err := gitRun(ctx, dir, "log", "--format=%B%x00", tag+"^{commit}")
+	if err != nil {
+		return nil, err
+	}
+	var msgs []string
+	for _, m := range strings.Split(string(out), "\x00") {
+		if m = strings.TrimSpace(m); m != "" {
+			msgs = append(msgs, m)
 		}
 	}
-	return cheatResult{}, nil
+	return msgs, nil
+}
+
+// gitRun runs git in dir without ever prompting (the TUI owns the terminal)
+// and returns its stdout; the error carries stderr, which repos.IsAuthError
+// reads.
+func gitRun(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	if os.Getenv("GIT_SSH_COMMAND") == "" {
+		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("git %s: %v: %s", args[0], err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.Bytes(), nil
 }
 
 // scanCheats checks every TP with a submission and returns the verdict by
@@ -148,7 +197,7 @@ func scanCheats(login, tmpl, root string, entries []data.HistoryEntry, progress 
 	var mu sync.Mutex
 	done := 0
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 4)
+	sem := make(chan struct{}, 8) // metadata only: much lighter than a clone
 	for _, e := range tps {
 		wg.Add(1)
 		sem <- struct{}{}
