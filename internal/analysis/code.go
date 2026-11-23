@@ -10,6 +10,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Winnowing parameters (as in MOSS): k-grams of normalized tokens, keeping
@@ -84,11 +86,134 @@ func LoadRepo(login, dir string) (*Repo, error) {
 	} else if count[LangC] > 0 {
 		r.Lang = LangC
 	}
+	// A main that only exercises the functions of the repo with fixed data is a
+	// test harness: it says nothing about the student's own code. It must be
+	// dropped before the fingerprints are computed: r.fps and r.xfps are indexed
+	// in parallel with r.Funcs.
+	defined := map[string]bool{}
+	for _, f := range r.Funcs {
+		if f.Name != "main" {
+			defined[f.Name] = true
+		}
+	}
+	r.Funcs = slices.DeleteFunc(r.Funcs, func(f Func) bool { return isTestMain(f, defined) })
 	for i := range r.Funcs {
 		r.fps = append(r.fps, fingerprints(r.Funcs[i].Norm))
 		r.xfps = append(r.xfps, fingerprints(r.Funcs[i].Exact))
 	}
 	return r, nil
+}
+
+// mainLogic holds the keywords of control flow. A main with more of them than
+// calls to the functions of the repo has logic of its own.
+var mainLogic = set("if else elif for while do switch goto try except with")
+
+// mainInput holds the identifiers of a main that reads from the user: a
+// program, not a test harness.
+var mainInput = set("scanf gets fgets getchar getc fgetc input readline readlines stdin")
+
+// testWords holds the words that make an identifier a test call or a test
+// framework: test_add, runTests, assert, ASSERT_EQ, self.assertEqual, EXPECT_TRUE,
+// CU_ASSERT, unittest.main, pytest.main, UNITY_BEGIN, ...
+var testWords = set("test tests testing unittest pytest doctest assert asserts expect expects verify cunit unity gtest")
+
+// identWords splits an identifier into lowercase words at underscores and
+// camelCase boundaries: "runTests" gives run, tests, but "latest" stays one word.
+func identWords(t string) []string {
+	var words []string
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			words = append(words, strings.ToLower(string(cur)))
+			cur = cur[:0]
+		}
+	}
+	var prev rune
+	for _, r := range t {
+		switch {
+		case r == '_':
+			flush()
+		case unicode.IsUpper(r) && unicode.IsLower(prev):
+			flush()
+			cur = append(cur, r)
+		default:
+			cur = append(cur, r)
+		}
+		prev = r
+	}
+	flush()
+	return words
+}
+
+// isTestName reports whether the identifier looks like a test call.
+func isTestName(t string) bool {
+	for _, w := range identWords(t) {
+		if testWords[w] {
+			return true
+		}
+	}
+	return false
+}
+
+// isIdent reports whether the token is an identifier or a keyword.
+func isIdent(t string) bool {
+	r, _ := utf8.DecodeRuneInString(t)
+	return unicode.IsLetter(r) || r == '_'
+}
+
+// isTestMain reports whether f is a main that only tests the functions of the
+// repo, whatever its shape:
+//   - straight-line calls and prints of results on literal data;
+//   - assert(...), test_xxx(), TEST(...), unittest.main(), EXPECT_EQ(...) and
+//     other test frameworks;
+//   - if (f(x) != y) { puts("FAIL"); return 1; } checks;
+//   - loops over a table of cases, as long as the calls to the functions of the
+//     repo are at least as many as the control-flow keywords.
+//
+// A main that reads user input or uses argc/argv is a program, not a harness,
+// and is kept. So is a main with no test name and no call to a function of the
+// repo: when in doubt, the function is compared.
+func isTestMain(f Func, defined map[string]bool) bool {
+	if f.Name != "main" {
+		return false
+	}
+	toks := f.Exact
+	calls, controls, argUse := 0, 0, 0
+	signal := false
+	for i, t := range toks {
+		if !isIdent(t) {
+			continue
+		}
+		if mainInput[t] {
+			return false
+		}
+		if t == "argc" || t == "argv" {
+			// Both are in the signature of main: only more uses than that count.
+			// In Python, sys.argv is always a use.
+			argUse++
+			if i > 0 && toks[i-1] == "." {
+				return false
+			}
+			continue
+		}
+		if mainLogic[t] {
+			controls++
+			continue
+		}
+		if isTestName(t) {
+			signal = true
+		}
+		if defined[t] && i+1 < len(toks) && toks[i+1] == "(" {
+			calls++
+		}
+	}
+	if argUse > 2 {
+		return false
+	}
+	if signal {
+		return true
+	}
+	return calls > 0 && calls >= controls
 }
 
 func (r *Repo) addFileStats(lang Lang, src string) {
