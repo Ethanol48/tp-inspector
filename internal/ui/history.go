@@ -71,7 +71,7 @@ type historyView struct {
 	kind     int                    // 0 = every kind, else historyKinds[kind-1]
 	cheat    map[string]cheatResult // by activity slug; nil = not scanned
 	tmpl     string                 // remote pattern of the student's repos, "" = unknown
-	cacheDir string                 // where the TPs are cloned
+	cacheDir string                 // where the commit metadata of the TPs is kept
 }
 
 func newHistoryView(m *Model, login string) *historyView {
@@ -151,14 +151,14 @@ func (v *historyView) handle(msg tea.Msg) tea.Cmd {
 			v.h = msg.h
 			v.built = nil
 			v.cheat = nil
-			return v.startCheat() // clone the TPs and look at the commits
+			return v.startCheat() // fetch the commits of the TPs and look at them
 		}
 	}
 	return nil
 }
 
-// startCheat clones the repository of every TP of the student with a
-// submission and looks for an AI co-author in its commits.
+// startCheat downloads the commit metadata of every TP of the student with a
+// submission and looks for an AI co-author in it.
 func (v *historyView) startCheat() tea.Cmd {
 	if v.h == nil || v.tmpl == "" {
 		return nil
@@ -326,7 +326,7 @@ func (v *historyView) cheatCell(e data.HistoryEntry) string {
 	r, ok := v.cheat[e.Activity.Slug]
 	switch {
 	case !ok && v.tmpl == "":
-		return sWarn.Render("url?") // TPI_REPO_URL is not set: nothing can be cloned
+		return sWarn.Render("url?") // TPI_REPO_URL is not set: nothing can be fetched
 	case !ok:
 		return sDim.Render("?") // not scanned yet: press c
 	case r.err != "":
@@ -542,7 +542,7 @@ func (v *historyView) View(m *Model, w, h int) string {
 		msg := sBold.Render("Download the history of "+v.login+"?") + "\n\n" +
 			sDim.Render(fmt.Sprintf("One request per activity of the promos %d–%d%s: TPs, exams and retakes,", promos[0], promos[len(promos)-1], est)) + "\n" +
 			sDim.Render("including the neighbouring promos to find a repeated year.") + "\n" +
-			sDim.Render("Grades are fetched, then each TP is cloned (commits only) to look for AI co-authors.") + "\n\n" +
+			sDim.Render("Grades are fetched, then the commit metadata of each TP is downloaded (no files) to look for AI co-authors.") + "\n\n" +
 			keyHint("y", "download") + "   " + keyHint("n/esc", "cancel")
 		if v.h != nil {
 			msg += "\n\n" + sDim.Render("Current copy downloaded "+fmtDuration(time.Since(v.h.FetchedAt))+" ago.")
